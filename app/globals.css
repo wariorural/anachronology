@@ -748,4 +748,25 @@ body {
   .tm-skuff[data-open="true"] {
     display: flex;
   }
+
+  /* Kortet: bunn-arket dekker nesten hele den lave skjermen. I landskap flyter det i
+     stedet som en sentrert popup med hel ramme — klar av innholdet, ikke dokket. */
+  .tm-kort {
+    margin: auto;
+    width: min(440px, calc(100vw - 96px));
+    max-width: min(440px, calc(100vw - 96px));
+    max-height: calc(100dvh - 28px);
+    border: 1px solid var(--ink);
+    border-radius: 16px;
+    box-shadow: 0 22px 60px -22px rgba(26, 25, 22, 0.5);
+    transform: translateY(10px) scale(0.98);
+  }
+  .tm-kort[open] {
+    transform: none;
+  }
+  @starting-style {
+    .tm-kort[open] {
+      transform: translateY(10px) scale(0.98);
+    }
+  }
 }
