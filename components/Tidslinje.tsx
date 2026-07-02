@@ -170,6 +170,13 @@ export default function Tidslinje({ verk, ankere, naa }: Props) {
   // Start-pad langs tidsaksen (y vertikalt / x horisontalt).
   const OFFSET = vannrett ? STARTX : TOPP;
 
+  // Landskap-telefon (lav høyde): de faste tverr-gutterne (108 topp + 50 bunn) spiser ~40 %
+  // av høyden. Kontekst-etikettene fordeles egentlig nedover HELE kroppen, ikke i toppen — så
+  // toppmargen holder bare NÅ-hodet og kan krympes. Gir markørbanene mer luft. Desktop uendret.
+  const kortHoyde = vannrett && H > 0 && H < 500;
+  const toppCross = kortHoyde ? 46 : LANE0_Y;
+  const bunnCross = kortHoyde ? 40 : BUNN_CROSS;
+
   // Scroll/peker langs tidsaksen — abstrahert så samme logikk gjelder begge orienteringer.
   const lesScroll = (el: HTMLDivElement) => (vannrett ? el.scrollLeft : el.scrollTop);
   const settScroll = (el: HTMLDivElement, v: number) => {
@@ -227,9 +234,9 @@ export default function Tidslinje({ verk, ankere, naa }: Props) {
 
     // Tverr-extent: horisontalt = høyden (minus gutters); vertikalt = bredden.
     const tverrEkst = erVannrett
-      ? Math.max(0, (H || 700) - LANE0_Y - BUNN_CROSS)
+      ? Math.max(0, (H || 700) - toppCross - bunnCross)
       : Math.max(0, (W || 1000) - LANE0_X - HOYRE_MARG);
-    const baseTvers = erVannrett ? LANE0_Y : LANE0_X;
+    const baseTvers = erVannrett ? toppCross : LANE0_X;
 
     // Mobil: hold bildene IMG-store → fast antall kolonner; lanes utover foldes til «+N».
     const maxKol = erKompakt ? Math.max(1, Math.floor(tverrEkst / IMG_MOBIL)) : Infinity;
@@ -367,7 +374,7 @@ export default function Tidslinje({ verk, ankere, naa }: Props) {
     }
 
     return { skala, langsTotal, spor, nabo, pluss, naaIdx };
-  }, [zoom, modus, verk, naa, W, H, medier]);
+  }, [zoom, modus, verk, naa, W, H, medier, toppCross, bunnCross]);
 
   // Den ENE tabbbare markøren: fokusIdx hvis fortsatt synlig, ellers default (nærmest NÅ).
   const synligeIdx = useMemo(
@@ -821,8 +828,8 @@ export default function Tidslinje({ verk, ankere, naa }: Props) {
                 W={W}
                 H={H}
                 naa={naa}
-                toppCross={LANE0_Y}
-                bunnCross={BUNN_CROSS}
+                toppCross={toppCross}
+                bunnCross={bunnCross}
                 kompakt={kompakt}
                 vannrett={vannrett}
               />
