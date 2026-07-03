@@ -6,16 +6,36 @@
   --ink-soft: #5c584f;
   --rule: #c9c4b8;
   --accent: #dd5117;
+  /* Oransje SOM TEKST: mørkere valør av samme hue (5.0:1 på papir — AA).
+     #dd5117 (3.1:1) beholdes for linjer/markører/ringer (grafikk trenger 3:1). */
+  --accent-text: #a83c0c;
 
-  /* Verditrappet bakteppe: årstall (--ink-soft, full) > kontekst-etikett > bånd-flate.
-     Holder fiksjonen (blekk/oransje) som figur og virkeligheten som rolig bakgrunn. */
-  --bg-etikett: rgba(107, 103, 94, 0.6); /* epoke/hendelse/oppfinnelse-tekst + gap */
+  /* Verditrappet bakteppe: tekst-lagene må klare AA (4.5:1) — hierarkiet mot
+     fiksjonen bæres av størrelse/vekt/farge (grå vs blekk), ikke av lav opacity.
+     Bånd-FLATENE (ikke-tekst) forblir svake. */
+  --bg-etikett: var(--ink-soft); /* epoke/hendelse/oppfinnelse-tekst + gap */
   --bg-baand: rgba(26, 25, 22, 0.05); /* epoke-bånd-flate */
   --bg-person: rgba(26, 25, 22, 0.055); /* person-livsbånd — enda roligere enn epoke */
-  --bg-person-tekst: rgba(107, 103, 94, 0.5); /* person-navn — dempet, bak verkene */
+  --bg-person-tekst: var(--ink-soft); /* person-navn — dempet via 9px/400, bak verkene */
 
-  --font-grotesk: "Neue Haas Grotesk", "Helvetica Neue", Helvetica, Arial,
-    sans-serif;
+  --font-grotesk: var(--font-grotesk-loaded, "Neue Haas Grotesk"),
+    "Helvetica Neue", Helvetica, Arial, sans-serif;
+
+  /* Én kontrollhøyde = én vertikal rytme i masthead (knapper OG chips). */
+  --control-h: 36px;
+}
+
+/* Skjult visuelt, lest av skjermlesere — tidslinjas tekstlige sammendrag. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
 }
 
 * {
@@ -43,6 +63,55 @@ body {
   * {
     scroll-behavior: auto !important;
   }
+}
+
+/* ---- Feil/404 — samme papir/blekk-stemme som resten ---- */
+.tm-feil {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 24px;
+  text-align: center;
+}
+
+.tm-feil h1 {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.tm-feil p {
+  margin: 0;
+  color: var(--ink-soft);
+}
+
+.tm-feil button,
+.tm-feil a {
+  margin-top: 12px;
+  padding: 0 16px;
+  height: var(--control-h);
+  display: inline-flex;
+  align-items: center;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-decoration: none;
+  background: var(--paper);
+  color: var(--accent-text);
+  border: 1px solid var(--accent);
+  cursor: pointer;
+}
+
+.tm-feil button:active,
+.tm-feil a:active {
+  background: var(--accent);
+  color: var(--paper);
 }
 
 /* ---- Tidslinje-skall ---- */
@@ -113,8 +182,8 @@ body {
 .tm-controls button {
   font: inherit;
   font-size: 14px;
-  width: 30px;
-  height: 30px;
+  width: var(--control-h);
+  height: var(--control-h);
   line-height: 1;
   padding: 0;
   background: var(--paper);
@@ -129,14 +198,54 @@ body {
   color: var(--paper);
 }
 
+/* Zoom-slider i samme register som resten: 2px rule-spor, kvadratisk oransje
+   thumb. Rå OS-slider var det ene åpenbart ustylede elementet i masthead. */
 .tm-controls input[type="range"] {
   width: 120px;
-  accent-color: var(--accent);
+  height: var(--control-h);
+  margin: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.tm-controls input[type="range"]::-webkit-slider-runnable-track {
+  height: 2px;
+  background: var(--rule);
+}
+
+.tm-controls input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 13px;
+  height: 13px;
+  margin-top: -5.5px;
+  background: var(--accent);
+  border: none;
+  border-radius: 0;
+}
+
+.tm-controls input[type="range"]::-moz-range-track {
+  height: 2px;
+  background: var(--rule);
+}
+
+.tm-controls input[type="range"]::-moz-range-thumb {
+  width: 13px;
+  height: 13px;
+  background: var(--accent);
+  border: none;
+  border-radius: 0;
+}
+
+.tm-controls input[type="range"]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .tm-controls .tm-toggle {
   width: auto;
-  height: 30px;
+  height: var(--control-h);
   padding: 0 12px;
   font-size: 10px;
   letter-spacing: 0.08em;
@@ -150,13 +259,13 @@ body {
 
 .tm-controls .tm-naa {
   width: auto;
-  height: 30px;
+  height: var(--control-h);
   padding: 0 12px;
   font-size: 10px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   border-color: var(--accent);
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .tm-controls .tm-naa:active {
@@ -183,7 +292,7 @@ body {
 .tm-skuff-knapp {
   display: none; /* kun mobil */
   width: auto;
-  height: 30px;
+  height: var(--control-h);
   padding: 0 10px;
   align-items: center;
   gap: 4px;
@@ -217,7 +326,7 @@ body {
   letter-spacing: 0.08em;
   text-transform: uppercase;
   background: var(--paper);
-  color: var(--accent);
+  color: var(--accent-text);
   border: 1px solid var(--accent);
   border-radius: 999px;
   cursor: pointer;
@@ -227,6 +336,43 @@ body {
 .tm-fab:active {
   background: var(--accent);
   color: var(--paper);
+}
+
+/* Engangs konsept-stripe (mobil): setningen som bærer hele ideen forsvant
+   akkurat der discovery-trafikken lander. Blekk-på-papir-invers, avvisbar. */
+.tm-intro {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 8px 9px 14px;
+  background: var(--ink);
+  color: var(--paper);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.tm-intro em {
+  font-style: normal;
+  color: #f4a583; /* lys oransje valør — leselig på blekk */
+}
+
+.tm-intro button {
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  font: inherit;
+  font-size: 16px;
+  line-height: 1;
+  background: transparent;
+  color: var(--paper);
+  border: 0;
+  cursor: pointer;
+}
+
+.tm-intro button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 /* Tom-tilstand når alle medier er filtrert bort */
@@ -282,10 +428,11 @@ body {
 }
 
 .tm-chip {
+  --chip-bg: var(--paper); /* leses av glyf-detaljer som må kontrastere fyllet */
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  min-height: 36px;
+  min-height: var(--control-h);
   padding: 0 10px;
   font: inherit;
   font-size: 10px;
@@ -300,6 +447,14 @@ body {
 
 .tm-chip svg {
   display: block;
+}
+
+/* PÅ = positivt signal (fylt blekk, papir-tekst) — «Show ~~film~~» alene var en
+   dobbel negasjon folk måtte tenke seg gjennom. */
+.tm-chip[aria-pressed="true"] {
+  --chip-bg: var(--ink);
+  background: var(--ink);
+  color: var(--paper);
 }
 
 /* Av-tilstand: gjenkjennelig uten å ofre lesbarhet (ikke lav opacity på teksten).
@@ -332,12 +487,49 @@ body {
   touch-action: pan-x;
 }
 
+.tm-scroll:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
 .tm-scroll svg {
   display: block;
 }
 
 .spor {
   cursor: pointer;
+}
+
+/* Hover-respons: gjenbruk valgt-ringen med 0-opacity som hviletilstand —
+   markører med synlig tittel ga ellers null svar før dialogen kom. */
+.tm-ring {
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+
+.spor:hover .tm-ring,
+.spor:focus-visible .tm-ring,
+.tm-ring[data-valgt="true"] {
+  opacity: 1;
+}
+
+/* «Tidshopp»-linja (laget-år → foregår-år) avsløres som ringen: hover/fokus/valg. */
+.tm-leap {
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+
+.spor:hover .tm-leap,
+.spor:focus-visible .tm-leap,
+.tm-leap[data-valgt="true"] {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tm-ring,
+  .tm-leap {
+    transition: none;
+  }
 }
 
 .tm-tittel {
@@ -425,6 +617,18 @@ body {
   }
 }
 
+/* Desktop: krymp arket rundt innholdet — 100vw-kant med tom papirflate på hver
+   side leste som uferdig, og ×-knappen fløt eierløst midt på skjermen. */
+@media (min-width: 700px) {
+  .tm-kort {
+    width: min(680px, calc(100vw - 48px));
+    max-width: min(680px, calc(100vw - 48px));
+    border: 1px solid var(--ink);
+    border-bottom: 0;
+    border-radius: 16px 16px 0 0;
+  }
+}
+
 .tm-kort article {
   position: relative;
   max-width: 680px; /* arket fyller bredden; teksten holdes i lesbar kolonne */
@@ -481,8 +685,24 @@ body {
 .tm-kort-tag {
   padding: 1px 6px;
   border: 1px solid var(--accent);
-  color: var(--accent);
+  color: var(--accent-text);
   letter-spacing: 0.1em;
+}
+
+/* Anakronisme-linja — kortets punchline («Imagined 99 years ahead»).
+   Oransje tekst-valør: dette ER fiksjonssignalet, men lesbart (AA). */
+.tm-kort-gap {
+  margin: 0 0 12px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent-text);
+}
+
+.tm-kort-gap small {
+  display: block;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--ink-soft);
 }
 
 .tm-kort-bilde {
@@ -502,12 +722,13 @@ body {
   letter-spacing: -0.01em;
 }
 
-/* «+N» (mobil): foldede verk i en tett rad — dempet pille, trykk zoomer inn */
+/* «+N» (mobil): foldede verk i en tett rad — dempet pille, trykk zoomer inn.
+   ink-soft: papir-tekst på pillen klarer AA (5.6:1) og pillegrensen 3:1. */
 .tm-plus {
   cursor: pointer;
 }
 .tm-plus rect {
-  fill: var(--bg-etikett);
+  fill: var(--ink-soft);
 }
 .tm-plus text {
   fill: var(--paper);
@@ -571,7 +792,7 @@ body {
 }
 
 .tm-kort-foot a {
-  color: var(--accent);
+  color: var(--accent-text);
   text-decoration: none;
   font-weight: 600;
 }

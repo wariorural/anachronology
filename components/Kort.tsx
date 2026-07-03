@@ -11,6 +11,34 @@ function status(v: Verk, naa: number): string {
   return "Historical";
 }
 
+// Kortets punchline: selve anakronismen, ferdig regnet ut. «Made 1927 / Set in
+// 2026» krevde hoderegning — dette ER innsikten produktet finnes for.
+function anakronisme(
+  v: Verk,
+  naa: number,
+): { hoved: string; under: string | null } | null {
+  if (v.lagetAar == null) return null;
+  const frem = v.foregaarFra - v.lagetAar;
+  if (frem > 0) {
+    const igjen = v.foregaarFra - naa;
+    return {
+      hoved: `Imagined ${fmtAar(frem)} year${frem === 1 ? "" : "s"} ahead`,
+      under:
+        igjen <= 0
+          ? "Reality has caught up."
+          : `Still ${fmtAar(igjen)} year${igjen === 1 ? "" : "s"} away.`,
+    };
+  }
+  const tilbake = v.lagetAar - v.foregaarTil;
+  if (tilbake > 0) {
+    return {
+      hoved: `Looks back ${fmtAar(tilbake)} year${tilbake === 1 ? "" : "s"}`,
+      under: null,
+    };
+  }
+  return null; // samtidsverk — ingen anakronisme å fortelle
+}
+
 interface Props {
   verk: Verk | null;
   naa: number;
@@ -41,6 +69,7 @@ export default function Kort({ verk, naa, onLukk }: Props) {
   }, [verk]);
 
   const v = verk ?? vist;
+  const gap = v ? anakronisme(v, naa) : null;
 
   return (
     <dialog
@@ -69,7 +98,17 @@ export default function Kort({ verk, naa, onLukk }: Props) {
           </p>
 
           {v.bilde && (
-            <img className="tm-kort-bilde" src={v.bilde} alt="" loading="lazy" />
+            <img
+              className="tm-kort-bilde"
+              src={v.bilde}
+              alt=""
+              loading="lazy"
+              referrerPolicy="no-referrer"
+              // Knekt thumbnail skal ikke etterlate en eierløs rammestripe.
+              onError={(e) => {
+                e.currentTarget.style.display = "none";
+              }}
+            />
           )}
 
           <h2 id="tm-kort-tittel" className="tm-kort-tittel">{v.tittel}</h2>
@@ -97,6 +136,13 @@ export default function Kort({ verk, naa, onLukk }: Props) {
               <dd>{status(v, naa)}</dd>
             </div>
           </dl>
+
+          {gap && (
+            <p className="tm-kort-gap">
+              {gap.hoved}
+              {gap.under && <small>{gap.under}</small>}
+            </p>
+          )}
 
           {v.merknad && <p className="tm-kort-merknad">{v.merknad}</p>}
 

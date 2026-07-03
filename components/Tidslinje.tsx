@@ -11,7 +11,19 @@ import Kort from "./Kort";
 interface Props {
   verk: Verk[];
   ankere: Anker[];
+  /** NÅ-året fra bygget (SSR-startverdi) — friskes opp klientside ved mount. */
   naa: number;
+}
+
+// URL-slug av tittel — deep-link til ett verk (#blade-runner) så aha-øyeblikket
+// kan deles. Diakritika strippes (Salò → salo).
+function slugAv(tittel: string): string {
+  return tittel
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
 }
 
 // Layout-konstanter (px). Tett sone får pxPerAar·zoom; tomme strekk kollapses.
@@ -90,12 +102,37 @@ function spreUtover(
   return ut;
 }
 
-export default function Tidslinje({ verk, ankere, naa }: Props) {
+export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
   const [zoom, setZoom] = useState(2);
   const [modus, setModus] = useState<"elastisk" | "lineaer">("elastisk");
   const [valgt, setValgt] = useState<number | null>(null);
   const [W, setW] = useState(0);
   const [H, setH] = useState(0);
+  // NÅ friskes opp klientside: bygge-verdien blir ellers stående feil hver
+  // 1. januar til noen tilfeldigvis redeployer — og NÅ-linja ER premisset.
+  const [naa, setNaa] = useState(naaBygg);
+  useEffect(() => {
+    setNaa(new Date().getFullYear());
+  }, []);
+  // Mobil-FAB: peker mot NÅ relativt til viewport-sentrum (↑/↓), ikke en løgn.
+  const [naaRetning, setNaaRetning] = useState<1 | -1>(1);
+  // Engangs konsept-stripe (mobil) — setningen som bærer ideen, avvisbar.
+  const [visIntro, setVisIntro] = useState(false);
+  useEffect(() => {
+    try {
+      if (!localStorage.getItem("tm-intro-vekk")) setVisIntro(true);
+    } catch {
+      setVisIntro(true);
+    }
+  }, []);
+  const lukkIntro = () => {
+    setVisIntro(false);
+    try {
+      localStorage.setItem("tm-intro-vekk", "1");
+    } catch {
+      /* privat modus e.l. — stripa kommer bare igjen neste besøk */
+    }
+  };
   // Filtre: hvilke medier vises, og om virkeligheten (ankrene) vises. Aksen
   // bygges på nytt fra de synlige verkene, så filtrering omformer tidslinja.
   const [medier, setMedier] = useState<Record<Medium, boolean>>({
@@ -279,6 +316,11 @@ export default function Tidslinje({ verk, ankere, naa }: Props) {
         y: erVannrett ? tvers : lng0,
         x2: erVannrett ? lng1 : tvers,
         y2: erVannrett ? tvers : lng1,
+        // Desktop: laget-årets akseposisjon → «tidshopp»-linja i Spor (hover/valg).
+        lagetX:
+          erVannrett && v.lagetAar != null
+            ? skala.yearToY(v.lagetAar)
+            : undefined,
         innhentet: v.foregaarFra <= naa,
         visTittel: true,
         bilde: v.bilde,
@@ -291,7 +333,7 @@ export default function Tidslinje({ verk, ankere, naa }: Props) {
     // Vis bare den som får plass i sin bane — resten hentes via hover/kort.
     const sistVistLangs = new Map<number, number>();
     for (const s of [...spor].sort((a, b) => a.lng0 - b.lng0)) {
-      const len = Math.min(s.verk.tittel.length, 22) * 6 + 8; // px tittelen tar langs aksen
+      const len = Math.min(s.verk.tittel.length, 30) * 6 + 8; // px tittelen tar langs aksen
       const forrige = sistVistLangs.get(s.lane);
       if (forrige === undefined || s.lng0 - forrige >= len) {
         sistVistLangs.set(s.lane, s.lng0);
@@ -391,8 +433,9 @@ export default function Tidslinje({ verk, ankere, naa }: Props) {
   );
 
   // "Sann avstand" (lineær) kollapser IKKE tomrom, så hele spennet (−80000→20000)
-  // får årstall-streker. Uten tak ville maks zoom gi titusener av SVG-noder → frys.
-  // Vi kapper derfor zoom i lineær modus så antall streker holder seg under ~2500.
+  // blir fysisk lerret. Ticks per segment er kappet i AkseLag, så taket her handler
+  // om total px-lengde (scroll-ytelse/presisjon) — budsjettet gir levende zoom i
+  // lineær modus i stedet for en død slider (min == maks med gamle tick-formelen).
   const spennAar = useMemo(() => {
     let min = Infinity;
     let max = -Infinity;
@@ -402,11 +445,10 @@ export default function Tidslinje({ verk, ankere, naa }: Props) {
     }
     return max - min + 2 * PAD_AAR;
   }, [verk]);
-  const MAKS_TICKS = 2500;
-  const MIN_PX_PER_TICK = 64; // tettheten tickSteg sikter på
+  const MAKS_PX_LINEAER = 2_000_000;
   const zoomMaksLineaer = Math.max(
     ZOOM_MIN,
-    Math.min(ZOOM_MAX, (MAKS_TICKS * MIN_PX_PER_TICK) / spennAar),
+    Math.min(ZOOM_MAX, MAKS_PX_LINEAER / (spennAar * PX_PER_AAR)),
   );
   const zoomMaks = modus === "lineaer" ? zoomMaksLineaer : ZOOM_MAX;
 
@@ -421,21 +463,46 @@ export default function Tidslinje({ verk, ankere, naa }: Props) {
 
   // Start scrollet ved NÅ (én gang, når størrelsen er kjent) — brukeren møter straks
   // juxtaposisjonen: noen framtider er innhentet, andre ikke. Oppdagelse > forklaring.
+  // Deep-link (#blade-runner) overstyrer: sentrer verkets år og åpne kortet.
   useLayoutEffect(() => {
     if (startetRef.current || W === 0) return;
     const el = scrollRef.current;
     if (!el) return;
     startetRef.current = true;
-    settScroll(el, OFFSET + layout.skala.yearToY(naa) - synsLangs(el) / 2);
+    let startAar = naa;
+    const hash = decodeURIComponent(window.location.hash.slice(1));
+    if (hash) {
+      const idx = verk.findIndex((v) => slugAv(v.tittel) === hash);
+      if (idx >= 0) {
+        startAar = verk[idx].foregaarFra;
+        setValgt(idx);
+      }
+    }
+    settScroll(el, OFFSET + layout.skala.yearToY(startAar) - synsLangs(el) / 2);
   }, [W, H, layout, naa]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Speil valgt verk i URL-hash (replaceState — ingen history-spam) så et funn
+  // («Metropolis er satt i 2026 — i år!») kan sendes som lenke.
+  useEffect(() => {
+    if (!startetRef.current) return;
+    const url =
+      valgt != null
+        ? `#${slugAv(verk[valgt].tittel)}`
+        : window.location.pathname + window.location.search;
+    history.replaceState(null, "", url);
+  }, [valgt, verk]);
 
   // Spor sentrum-året kontinuerlig så rotasjon/resize kan re-sentrere det (over).
   const påScroll = () => {
     const el = scrollRef.current;
     if (!el || !startetRef.current) return;
-    sentrumAarRef.current = layout.skala.yToYear(
+    const sentrum = layout.skala.yToYear(
       lesScroll(el) + synsLangs(el) / 2 - OFFSET,
     );
+    sentrumAarRef.current = sentrum;
+    // FAB-pila: NÅ ligger mot framtida (ned/høyre) når sentrum er i fortida.
+    const retning = sentrum <= naa ? 1 : -1;
+    if (retning !== naaRetning) setNaaRetning(retning);
   };
 
   // Zoom ankret i et viewport-punkt langs tidsaksen (vLangs = px fra start-kanten).
@@ -480,7 +547,17 @@ export default function Tidslinje({ verk, ankere, naa }: Props) {
   );
 
   // Bytt modus; klem zoom under lineær-taket først så vi aldri rendrer for mange streker.
+  // Anker sentrum-året i BEGGE retninger — uten det lander viewporten på et
+  // vilkårlig år og modusbyttet føles som havari, ikke innsikt.
   const byttModus = () => {
+    const el = scrollRef.current;
+    if (el) {
+      const midt = synsLangs(el) / 2;
+      ankerRef.current = {
+        aar: layout.skala.yToYear(lesScroll(el) + midt - OFFSET),
+        v: midt,
+      };
+    }
     const ny = modus === "elastisk" ? "lineaer" : "elastisk";
     if (ny === "lineaer" && zoom > zoomMaksLineaer) {
       zoomTil(zoomMaksLineaer, midtLangs());
@@ -614,7 +691,8 @@ export default function Tidslinje({ verk, ankere, naa }: Props) {
         return (
           <g>
             <rect x="2" y="2" width="9" height="9" fill="currentColor" />
-            <line x1="2" y1="6.5" x2="11" y2="6.5" stroke="var(--paper)" strokeWidth="1.2" />
+            {/* --chip-bg: delelinja må kontrastere fyllet også på PÅ-chip (blekk) */}
+            <line x1="2" y1="6.5" x2="11" y2="6.5" stroke="var(--chip-bg)" strokeWidth="1.8" />
           </g>
         );
       default: // film
@@ -659,7 +737,9 @@ export default function Tidslinje({ verk, ankere, naa }: Props) {
           <div className="tm-brand">
             <h1>Anachronology</h1>
             <span className="tm-dek">
-              Fiction placed by the year it&apos;s set in, against real history
+              {modus === "lineaer"
+                ? "True distances — empty centuries no longer compressed"
+                : "Fiction placed by the year it's set in, against real history"}
             </span>
             <span className="tm-count">{verk.length} works</span>
           </div>
@@ -684,6 +764,7 @@ export default function Tidslinje({ verk, ankere, naa }: Props) {
               step={0.1}
               value={zoom}
               aria-label="Zoom"
+              aria-valuetext={`${zoom.toFixed(1)}× zoom`}
               onChange={(e) => zoomTil(+e.target.value, midtLangs())}
             />
             <button
@@ -702,6 +783,10 @@ export default function Tidslinje({ verk, ankere, naa }: Props) {
               title="Show true distances in time (outliers dominate)"
             >
               True time
+              <span className="sr-only">
+                {" "}
+                — linear scale; empty stretches of time are no longer compressed
+              </span>
             </button>
             <button
               type="button"
@@ -735,12 +820,23 @@ export default function Tidslinje({ verk, ankere, naa }: Props) {
             </svg>
             film
           </li>
-          <li>
-            <svg width="13" height="13" aria-hidden="true">
-              <rect x="2.5" y="2.5" width="8" height="8" fill="none" stroke="var(--ink)" strokeWidth="1.4" />
-            </svg>
-            filled = before NOW · hollow = after NOW
-          </li>
+          {kompakt ? (
+            // Mobil-markører er thumbnails — før/etter NÅ bæres av rammefargen,
+            // så legenden må lære bort koden som faktisk brukes på denne skjermen.
+            <li>
+              <svg width="13" height="13" aria-hidden="true">
+                <rect x="2.5" y="2.5" width="8" height="8" rx="2" fill="none" stroke="var(--accent)" strokeWidth="1.6" />
+              </svg>
+              orange frame = set after NOW
+            </li>
+          ) : (
+            <li>
+              <svg width="13" height="13" aria-hidden="true">
+                <rect x="2.5" y="2.5" width="8" height="8" fill="none" stroke="var(--ink)" strokeWidth="1.4" />
+              </svg>
+              filled = before NOW · hollow = after NOW
+            </li>
+          )}
           <li>
             <svg width="13" height="13" aria-hidden="true">
               <line x1="6.5" y1="1.5" x2="6.5" y2="11.5" stroke="var(--accent)" strokeWidth="3" strokeLinecap="round" />
@@ -802,9 +898,37 @@ export default function Tidslinje({ verk, ankere, naa }: Props) {
         />
       )}
 
+      {/* Mobil: undertittel + antall er skjult i header — men konseptet MÅ sies
+          der discovery-trafikken lander. Én setning, avvises én gang. */}
+      {kompakt && visIntro && (
+        <div className="tm-intro" role="note">
+          <span>
+            Fiction placed by the year it&apos;s <em>set</em> in — not when it
+            was made.
+          </span>
+          <button type="button" aria-label="Dismiss" onClick={lukkIntro}>
+            ×
+          </button>
+        </div>
+      )}
+
+      {/* Tidslinjas tekstlige sammendrag — SVG-en er ellers geometri uten
+          fortelling for skjermlesere. */}
+      <p className="sr-only">
+        {`${verk.length} works of fiction placed by the year they are set in, `}
+        {`against real history. The NOW line is ${naa}: `}
+        {`${verk.filter((v) => v.foregaarFra <= naa).length} works are set in years reality has reached, `}
+        {`${verk.filter((v) => v.foregaarFra > naa).length} in futures still ahead. `}
+        Tab moves into the timeline; arrow keys step between works in time
+        order; Enter opens details.
+      </p>
+
       <div
         className="tm-scroll"
         ref={scrollRef}
+        tabIndex={0}
+        role="region"
+        aria-label="Timeline (scrollable)"
         onScroll={påScroll}
         onPointerDown={pekerNed}
         onPointerMove={pekerFlytt}
@@ -887,7 +1011,7 @@ export default function Tidslinje({ verk, ankere, naa }: Props) {
         )}
         {W > 0 && layout.spor.length === 0 && (
           <p className="tm-tom" role="status">
-            No works shown – enable a medium in «Legend».
+            Nothing to show — turn film, book or TV back on.
           </p>
         )}
       </div>
@@ -898,7 +1022,7 @@ export default function Tidslinje({ verk, ankere, naa }: Props) {
         onClick={hoppTilNaa}
         aria-label="Jump to NOW"
       >
-        NOW ↓
+        NOW {naaRetning === 1 ? "↓" : "↑"}
       </button>
 
       <Kort

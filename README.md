@@ -1,16 +1,16 @@
-# Tidsmaskinen
+# Anachronology
 
-En vertikal tidslinje som plasserer fiksjon (film/bok/TV/spill) etter **året den
-foregår i** — mot virkelig historie. NÅ-linja skiller framtid virkeligheten har
-innhentet (Blade Runner 2019, Akira 2019) fra uinnfridd framtid (Children of Men
-2027, Dune 20000).
+En tidslinje som plasserer fiksjon (film/bok/TV) etter **året den foregår i** —
+mot virkelig historie. NÅ-linja skiller framtid virkeligheten har innhentet
+(Blade Runner 2019, Akira 2019) fra uinnfridd framtid (Children of Men 2027,
+Dune 20000). Horisontal på desktop, vertikal på mobil.
 
 ## Kjøre lokalt
 
 ```bash
 npm install
 npm run dev      # http://localhost:3000
-npm test         # enhetstester for skala.ts + dodge.ts
+npm test         # enhetstester for skala.ts + dodge.ts + datavalidering av seed.json
 npm run build    # produksjonsbygg
 ```
 
@@ -21,12 +21,13 @@ Kopier en eksisterende linje og endre verdiene:
 
 ```json
 {
-  "tittel": "Mad Max: Fury Road",
+  "tittel": "Ghost in the Shell",
   "medium": "film",
-  "lagetAar": 2015,
-  "foregaarFra": 2070,
-  "foregaarTil": 2070,
-  "wiki": "https://en.wikipedia.org/wiki/Mad_Max:_Fury_Road"
+  "skaper": "Mamoru Oshii",
+  "lagetAar": 1995,
+  "foregaarFra": 2029,
+  "foregaarTil": 2029,
+  "wiki": "https://en.wikipedia.org/wiki/Ghost_in_the_Shell_(1995_film)"
 }
 ```
 
@@ -37,15 +38,16 @@ Lagre fila — siden oppdaterer seg selv. **Ingen kodeendring trengs.**
 | Felt          | Påkrevd | Hva                                                                 |
 |---------------|---------|---------------------------------------------------------------------|
 | `tittel`      | ja      | Verkets navn.                                                        |
-| `medium`      | ja      | `"film"`, `"bok"`, `"tv"` eller `"spill"` — bestemmer markørformen.  |
+| `medium`      | ja      | `"film"`, `"bok"` eller `"tv"` — bestemmer markørformen.            |
 | `foregaarFra` | ja      | Året handlingen **foregår** fra. Dette er akse-posisjonen.          |
 | `foregaarTil` | ja      | Lik `foregaarFra` for et punkt; et senere år for et tidsspenn (strek). |
 | `lagetAar`    | nei     | Når verket ble laget/skrevet. Vises **kun i kortet**, aldri på aksen. |
-| `skaper`      | nei     | Regissør (film/TV), forfatter (bok) eller studio (spill). Vises i kortet. |
+| `skaper`      | nei     | Regissør (film/TV) eller forfatter (bok). Vises i kortet.           |
 | `usikker`     | nei     | `true` → stiplet kontur (omstridt årstall, f.eks. Metropolis).      |
 | `merknad`     | nei     | Kort tekst i kortet.                                                 |
 | `kilde`       | nei     | Kildehenvisning (vises i kortet).                                   |
 | `wiki`        | nei     | Direktelenke. Mangler den, søkes det på tittelen på Wikipedia.      |
+| `bilde`       | nei     | Thumbnail-URL (Wikipedia/Commons). Markør på mobil + bilde i kortet. Feiler lasting, brukes formmarkøren. |
 
 > **f.Kr.:** bruk negative år. Spartacus foregår i 73 f.Kr. → `"foregaarFra": -73`.
 
@@ -61,6 +63,7 @@ Bakgrunnen (ekte historie) ligger i `ankere`-lista i samme fil:
   deles automatisk i vertikale kolonner.
 - `type: "hendelse"` → linje + etikett på aksen (`til` lik `fra`).
 - `type: "oppfinnelse"` → stjerne + prikket linje (når noe ble oppfunnet, `til` lik `fra`).
+- `type: "person"` → svakt livsbånd bak aksen (`fra` = født, `til` = død).
 - `vekt` (valgfri) → prioritet når plassen er trang.
 
 Epokene styrer **ikke** akse-tettheten — den drives av verkene. Epokene er
