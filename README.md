@@ -49,6 +49,10 @@ Lagre fila — siden oppdaterer seg selv. **Ingen kodeendring trengs.**
 | `wiki`        | nei     | Direktelenke. Mangler den, søkes det på tittelen på Wikipedia.      |
 | `bilde`       | nei     | Thumbnail-URL (Wikipedia/Commons). Markør på mobil + bilde i kortet. Feiler lasting, brukes formmarkøren. |
 
+> **Thumbnails:** `npm run thumbs` verifiserer alle `bilde`-URL-er (fjerner døde)
+> og henter manglende via Wikipedias pageimages-API (fra `wiki`-lenka). Kjør den
+> etter at du har lagt til verk — da slipper du å lete opp bilde-URL-er selv.
+
 > **f.Kr.:** bruk negative år. Spartacus foregår i 73 f.Kr. → `"foregaarFra": -73`.
 
 ## Legge til en epoke eller hendelse
