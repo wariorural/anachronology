@@ -1,9 +1,9 @@
-# Tidsmaskinen
+# Anachronology
 
-En vertikal tidslinje som plasserer fiksjon (film/bok/TV/spill) etter **året den
-foregår i** — mot virkelig historie. NÅ-linja skiller framtid virkeligheten har
-innhentet (Blade Runner 2019, Akira 2019) fra uinnfridd framtid (Children of Men
-2027, Dune 20000).
+En tidslinje som plasserer fiksjon (film/bok/TV) etter **året den foregår i** —
+mot virkelig historie. NÅ-linja skiller framtid virkeligheten har innhentet
+(Blade Runner 2019, Akira 2019) fra uinnfridd framtid (Children of Men 2027,
+Dune 20000). Horisontal på desktop, vertikal på mobil.
 
 ## Kjøre lokalt
 
@@ -37,11 +37,11 @@ Lagre fila — siden oppdaterer seg selv. **Ingen kodeendring trengs.**
 | Felt          | Påkrevd | Hva                                                                 |
 |---------------|---------|---------------------------------------------------------------------|
 | `tittel`      | ja      | Verkets navn.                                                        |
-| `medium`      | ja      | `"film"`, `"bok"`, `"tv"` eller `"spill"` — bestemmer markørformen.  |
+| `medium`      | ja      | `"film"`, `"bok"` eller `"tv"` — bestemmer markørformen.            |
 | `foregaarFra` | ja      | Året handlingen **foregår** fra. Dette er akse-posisjonen.          |
 | `foregaarTil` | ja      | Lik `foregaarFra` for et punkt; et senere år for et tidsspenn (strek). |
 | `lagetAar`    | nei     | Når verket ble laget/skrevet. Vises **kun i kortet**, aldri på aksen. |
-| `skaper`      | nei     | Regissør (film/TV), forfatter (bok) eller studio (spill). Vises i kortet. |
+| `skaper`      | nei     | Regissør (film/TV) eller forfatter (bok). Vises i kortet.           |
 | `usikker`     | nei     | `true` → stiplet kontur (omstridt årstall, f.eks. Metropolis).      |
 | `merknad`     | nei     | Kort tekst i kortet.                                                 |
 | `kilde`       | nei     | Kildehenvisning (vises i kortet).                                   |

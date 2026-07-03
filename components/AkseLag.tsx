@@ -1,7 +1,7 @@
 import { memo } from "react";
 import type { Skala } from "@/lib/skala";
 import type { Anker } from "@/lib/typer";
-import { fmtAar, tickSteg } from "@/lib/format";
+import { fmtAar, fmtGap, tickSteg } from "@/lib/format";
 
 interface Props {
   skala: Skala;
@@ -220,24 +220,61 @@ function AkseLag({ skala, ankere, venstreX, W, H, naa, toppCross = 108, bunnCros
     const seg = skala.segmenter[i];
 
     if (seg.kollapset) {
+      // «Revet akse»: kant-linjer + svak flate gjør komprimeringen synlig i selve
+      // kroppen — før så et kollapset 340-årsgap ut som 34px vanlig tid, og
+      // etiketten delte baseline med årstallene (bokstavgrøt nederst til høyre).
       const midt = (seg.y0 + seg.y1) / 2;
-      const aar = seg.til - seg.fra;
+      const etikett = `${fmtGap(seg.til - seg.fra)} skipped`;
+      const flate = vannrett
+        ? { x: seg.y0, y: 0, width: seg.y1 - seg.y0, height: H }
+        : { x: 0, y: seg.y0, width: W, height: seg.y1 - seg.y0 };
+      const senterTvers = vannrett
+        ? toppCross + (H - toppCross - bunnCross) / 2
+        : venstreX + 8;
       linjer.push(
-        vannrett ? (
-          <text key={`gap-${i}`} x={midt} y={H - 8} textAnchor="middle" fontSize={9} letterSpacing=".06em" fill="var(--bg-etikett)">
-            {`⋯ ${aar} years ⋯`}
-          </text>
-        ) : (
-          <text key={`gap-${i}`} x={venstreX + 8} y={midt + 3} fontSize={10} letterSpacing=".08em" fill="var(--bg-etikett)">
-            {`⋯ ${aar} years ⋯`}
-          </text>
-        ),
+        <g key={`gap-${i}`}>
+          <rect {...flate} fill="var(--ink)" fillOpacity={0.03} />
+          {tverrLinje(seg.y0, `gk0-${i}`, "var(--rule)", 1, "3 3")}
+          {tverrLinje(seg.y1, `gk1-${i}`, "var(--rule)", 1, "3 3")}
+          {vannrett ? (
+            <text
+              x={midt}
+              y={senterTvers}
+              textAnchor="middle"
+              transform={`rotate(-45 ${midt} ${senterTvers})`}
+              fontSize={9}
+              letterSpacing=".06em"
+              fill="var(--bg-etikett)"
+              stroke="var(--paper)"
+              strokeWidth={3}
+              paintOrder="stroke"
+            >
+              {etikett}
+            </text>
+          ) : (
+            <text
+              x={senterTvers}
+              y={midt + 3}
+              fontSize={10}
+              letterSpacing=".08em"
+              fill="var(--bg-etikett)"
+              stroke="var(--paper)"
+              strokeWidth={3}
+              paintOrder="stroke"
+            >
+              {etikett}
+            </text>
+          )}
+        </g>,
       );
       continue;
     }
 
     const pxPerAar = (seg.y1 - seg.y0) / (seg.til - seg.fra);
-    const steg = tickSteg(pxPerAar);
+    let steg = tickSteg(pxPerAar);
+    // Tak per segment: lineær modus kan gi enorme år-spenn i ETT segment —
+    // dobling holder «nice» intervaller og antall streker begrenset.
+    while ((seg.til - seg.fra) / steg > 80) steg *= 2;
     const forste = Math.ceil(seg.fra / steg) * steg;
     for (let yr = forste; yr <= seg.til; yr += steg) {
       const p = L(yr);
@@ -321,13 +358,15 @@ function AkseLag({ skala, ankere, venstreX, W, H, naa, toppCross = 108, bunnCros
   );
 
   // --- Hendelser: tverrlinje + etikett spredt inn i kroppen ---
+  // Vekt 400 + papir-halo: grå+lett = bakgrunn, blekk+medium = figur — og der
+  // strataene likevel krysser forblir begge lesbare i stedet for bokstavgrøt.
   const hendelser = hendAnk.map((a, i) => {
     const p = L(a.fra);
     const pos = ktxPos(kontekstLane.get(a)!, p);
     return (
       <g key={`hendelse-${i}`}>
         {tverrLinje(p, `hl-${i}`, "var(--rule)", 1)}
-        <text x={pos.x} y={pos.y} textAnchor={pos.anchor} fontSize={10} fontWeight={600} letterSpacing=".04em" fill="var(--bg-etikett)">
+        <text x={pos.x} y={pos.y} textAnchor={pos.anchor} fontSize={10} fontWeight={400} letterSpacing=".04em" fill="var(--bg-etikett)" stroke="var(--paper)" strokeWidth={3} paintOrder="stroke">
           {ktxTekst(a, false)}
         </text>
       </g>
@@ -341,7 +380,7 @@ function AkseLag({ skala, ankere, venstreX, W, H, naa, toppCross = 108, bunnCros
     return (
       <g key={`oppf-${i}`}>
         {tverrLinje(p, `ol-${i}`, "var(--rule)", 1, "1 5")}
-        <text x={pos.x} y={pos.y} textAnchor={pos.anchor} fontSize={10} fontWeight={600} letterSpacing=".04em" fill="var(--bg-etikett)">
+        <text x={pos.x} y={pos.y} textAnchor={pos.anchor} fontSize={10} fontWeight={400} letterSpacing=".04em" fill="var(--bg-etikett)" stroke="var(--paper)" strokeWidth={3} paintOrder="stroke">
           {ktxTekst(a, true)}
         </text>
       </g>
@@ -369,27 +408,43 @@ function AkseLag({ skala, ankere, venstreX, W, H, naa, toppCross = 108, bunnCros
   return (
     <g>
       <rect {...framtid} fill="var(--accent)" fillOpacity={0.03} />
-      {orientering}
+      {/* Rent navigasjonelt (retning, årstall, gap) — støy i skjermleser-strømmen;
+          sr-sammendraget i Tidslinje bærer samme informasjon som tekst. */}
+      <g aria-hidden="true">{orientering}</g>
       {baand}
       {personBaand}
-      {linjer}
+      <g aria-hidden="true">{linjer}</g>
       {hendelser}
       {oppfinnelser}
-      {/* NÅ — den ene fete tverrlinja, kant-til-kant (ref: kalenderplakaten) */}
+      {/* NÅ — den ene fete tverrlinja, kant-til-kant (ref: kalenderplakaten).
+          Flankert av tesen i klartekst: fylt/hul-koden forklares VED linja,
+          ikke bare i en fjern legende. */}
       <g>
         {tverrLinje(yNaa, "naa-linje", "var(--accent)", 2.5)}
         {vannrett ? (
           <>
             <path d={`M ${yNaa - 7} 2 L ${yNaa + 7} 2 L ${yNaa} 13 Z`} fill="var(--accent)" />
-            <text x={yNaa + 8} y={18} textAnchor="start" fontSize={13} fontWeight={700} letterSpacing=".10em" fill="var(--accent)">
+            <text x={yNaa + 8} y={18} textAnchor="start" fontSize={13} fontWeight={700} letterSpacing=".10em" fill="var(--accent-text)">
               {`NOW ${naa}`}
+            </text>
+            <text x={yNaa - 10} y={17} textAnchor="end" fontSize={9} fontWeight={600} letterSpacing=".1em" fill="var(--ink-soft)" stroke="var(--paper)" strokeWidth={3} paintOrder="stroke">
+              ALREADY HAPPENED
+            </text>
+            <text x={yNaa + 8} y={32} textAnchor="start" fontSize={9} fontWeight={600} letterSpacing=".1em" fill="var(--ink-soft)" stroke="var(--paper)" strokeWidth={3} paintOrder="stroke">
+              STILL FICTION
             </text>
           </>
         ) : (
           <>
             <path d={`M 0 ${yNaa - 7} L 11 ${yNaa} L 0 ${yNaa + 7} Z`} fill="var(--accent)" />
-            <text x={W - venstreX} y={yNaa - 7} textAnchor="end" fontSize={13} fontWeight={700} letterSpacing=".12em" fill="var(--accent)">
+            <text x={W - venstreX} y={yNaa - 7} textAnchor="end" fontSize={13} fontWeight={700} letterSpacing=".12em" fill="var(--accent-text)">
               {`NOW ${naa}`}
+            </text>
+            <text x={W - venstreX} y={yNaa - 21} textAnchor="end" fontSize={9} fontWeight={600} letterSpacing=".1em" fill="var(--ink-soft)" stroke="var(--paper)" strokeWidth={3} paintOrder="stroke">
+              ALREADY HAPPENED
+            </text>
+            <text x={W - venstreX} y={yNaa + 17} textAnchor="end" fontSize={9} fontWeight={600} letterSpacing=".1em" fill="var(--ink-soft)" stroke="var(--paper)" strokeWidth={3} paintOrder="stroke">
+              STILL FICTION
             </text>
           </>
         )}

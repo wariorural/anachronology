@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { Verk } from "@/lib/typer";
 import { fmtAar, mediumNavn, tittelKort } from "@/lib/format";
 
@@ -33,6 +34,9 @@ interface Props {
   visNavn?: boolean;
   /** Bilde-side i px på mobil. */
   bildeStr?: number;
+  /** Desktop: skjerm-x for lagetAar — tegner «tidshopp»-linja (laget → foregår)
+   *  ved hover/valg. Anakronismen blir synlig på selve lerretet. */
+  lagetX?: number;
 }
 
 function Markor({
@@ -62,13 +66,14 @@ function Markor({
       return (
         <g>
           <rect x={x - r} y={y - r} width={r * 2} height={r * 2} {...felles} />
+          {/* Delelinja er hele TV-koden — 1.3px forsvant på 14px. 2.6px leses. */}
           <line
             x1={x - r}
             y1={y}
             x2={x + r}
             y2={y}
             stroke={innhentet ? "var(--paper)" : "var(--ink)"}
-            strokeWidth={sw}
+            strokeWidth={2.6}
           />
         </g>
       );
@@ -98,6 +103,7 @@ export default function Spor({
   bilde,
   visNavn = false,
   bildeStr = 30,
+  lagetX,
 }: Props) {
   const spennLen = Math.hypot(x2 - x, y2 - y);
   const spenn = spennLen > 1;
@@ -106,7 +112,10 @@ export default function Spor({
   }, set in ${fmtAar(verk.foregaarFra)}. Tap for details.`;
 
   // Mobil-markør = bilde når vi har en thumbnail; ellers form (de få uten bilde).
-  const brukBilde = kompakt && !!bilde;
+  // Feilet lasting (fjernet Commons-fil, blokkering, offline) ruter til form-
+  // fallbacken som allerede finnes — aldri nettleserens knekte-bilde-glyf.
+  const [bildeFeil, setBildeFeil] = useState(false);
+  const brukBilde = kompakt && !!bilde && !bildeFeil;
   const s = bildeStr;
   const x0 = x - s / 2;
   const y0 = y - s / 2;
@@ -136,16 +145,47 @@ export default function Spor({
       {/* usynlig treffområde ≥44px (WCAG target size) — lett å treffe på touch */}
       <circle cx={(x + x2) / 2} cy={(y + y2) / 2} r={Math.max(22, spennLen / 2 + 14)} fill="transparent" />
       {spenn && (
-        /* oransje strek med runde ender = tidsspennet (fiksjon = oransje) */
+        /* oransje strek med runde ender = tidsspennet (fiksjon = oransje).
+           4px: spennene skal aldri rope høyere enn NÅ-linja. */
         <line
           x1={x}
           y1={y}
           x2={x2}
           y2={y2}
           stroke="var(--accent)"
-          strokeWidth={6}
+          strokeWidth={4}
           strokeLinecap="round"
         />
+      )}
+
+      {/* «Tidshopp»-linja (desktop, hover/valg): laget-året → foregår-året.
+          Anakronismen — produktets tittel-innsikt — tegnet der den hører hjemme. */}
+      {!kompakt && lagetX != null && verk.lagetAar != null && Math.abs(lagetX - x) > 12 && (
+        <g className="tm-leap" data-valgt={erValgt} pointerEvents="none">
+          <line
+            x1={lagetX}
+            y1={y}
+            x2={x}
+            y2={y}
+            stroke="var(--ink-soft)"
+            strokeWidth={1}
+            strokeDasharray="2 4"
+          />
+          <line x1={lagetX} y1={y - 4} x2={lagetX} y2={y + 4} stroke="var(--ink-soft)" strokeWidth={1.4} />
+          <text
+            x={lagetX < x ? lagetX - 5 : lagetX + 5}
+            y={y + 3}
+            textAnchor={lagetX < x ? "end" : "start"}
+            fontSize={9}
+            fontWeight={500}
+            fill="var(--ink-soft)"
+            stroke="var(--paper)"
+            strokeWidth={3}
+            paintOrder="stroke"
+          >
+            {`made ${fmtAar(verk.lagetAar)}`}
+          </text>
+        </g>
       )}
 
       {brukBilde ? (
@@ -161,38 +201,45 @@ export default function Spor({
             height={s}
             preserveAspectRatio="xMidYMid slice"
             clipPath={`url(#${klippId})`}
+            onError={() => setBildeFeil(true)}
           />
           <rect x={x0} y={y0} width={s} height={s} rx={6} fill="none" stroke={kant} strokeWidth={1.3} />
-          {erValgt && (
-            <rect
-              x={x0 - 3}
-              y={y0 - 3}
-              width={s + 6}
-              height={s + 6}
-              rx={9}
-              fill="none"
-              stroke="var(--accent)"
-              strokeWidth={2}
-              pointerEvents="none"
-            />
-          )}
+          <rect
+            className="tm-ring"
+            data-valgt={erValgt}
+            x={x0 - 3}
+            y={y0 - 3}
+            width={s + 6}
+            height={s + 6}
+            rx={9}
+            fill="none"
+            stroke="var(--accent)"
+            strokeWidth={2}
+            pointerEvents="none"
+          />
         </g>
       ) : (
         <g>
           <Markor verk={verk} x={x} y={y} innhentet={innhentet} r={kompakt ? rFallback : r} />
-          {/* oransje prikk — gir fiksjons-fargen også til punkt-verk uten spenn */}
-          <circle cx={x} cy={y} r={2.4} fill="var(--accent)" />
-          {erValgt && (
-            <circle
-              cx={x}
-              cy={y}
-              r={(kompakt ? rFallback : r) + 5}
-              fill="none"
-              stroke="var(--accent)"
-              strokeWidth={2}
-              pointerEvents="none"
-            />
-          )}
+          {/* oransje prikk — gir fiksjons-fargen også til punkt-verk uten spenn.
+              TV: prikken flyttes ned så den ikke visker ut delelinja (TV-koden). */}
+          <circle
+            cx={x}
+            cy={verk.medium === "tv" ? y + (kompakt ? rFallback : r) * 0.55 : y}
+            r={2.4}
+            fill="var(--accent)"
+          />
+          <circle
+            className="tm-ring"
+            data-valgt={erValgt}
+            cx={x}
+            cy={y}
+            r={(kompakt ? rFallback : r) + 5}
+            fill="none"
+            stroke="var(--accent)"
+            strokeWidth={2}
+            pointerEvents="none"
+          />
         </g>
       )}
 
@@ -216,7 +263,8 @@ export default function Spor({
           </text>
         )
       ) : (
-        // Desktop (horisontal): tittel horisontalt over markøren, declutter via visTittel
+        // Desktop (horisontal): tittel horisontalt over markøren, declutter via
+        // visTittel. Papir-halo: figuren vinner alltid der strataene overlapper.
         <text
           className={visTittel ? "tm-tittel" : "tm-tittel tm-tittel-skjult"}
           x={x}
@@ -225,9 +273,12 @@ export default function Spor({
           fontWeight={500}
           letterSpacing=".01em"
           fill="var(--ink)"
+          stroke="var(--paper)"
+          strokeWidth={3}
+          paintOrder="stroke"
           textAnchor="middle"
         >
-          {tittelKort(verk.tittel, 22)}
+          {tittelKort(verk.tittel, 30)}
         </text>
       )}
     </g>

@@ -5,7 +5,8 @@ import Tidslinje from "@/components/Tidslinje";
 const data = seed as Datasett;
 
 export default function Home() {
-  // NÅ-året bakes ved bygg. Rebuild oppdaterer NÅ-linja (godt nok for v1).
+  // NÅ-året bakes ved bygg som SSR-startverdi; Tidslinje frisker det opp
+  // klientside ved mount (ellers står linja feil hver 1. januar til redeploy).
   const naa = new Date().getFullYear();
   return <Tidslinje verk={data.verk} ankere={data.ankere} naa={naa} />;
 }
