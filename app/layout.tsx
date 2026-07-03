@@ -13,12 +13,18 @@ const grotesk = Schibsted_Grotesk({
 });
 
 const TITTEL = "Anachronology – when is fiction set?";
+// Ingen hardkodet verk-antall her — datasettet vokser, metadata skal ikke drifte.
 const BESKRIVELSE =
-  "99 works of fiction placed by the year they're set in – against real history. " +
+  "Fiction placed by the year it's set in – against real history. " +
   "The NOW line splits futures reality has caught up with from the ones still ahead.";
 
-// Kanonisk URL styres av miljøet (settes ved deploy); lokalt en trygg default.
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+// Kanonisk URL: eksplisitt env vinner; ellers Vercels produksjonsdomene ved
+// deploy; lokalt en trygg default. (Uten dette pekte og:image på localhost.)
+const SITE_URL =
+  process.env.NEXT_PUBLIC_SITE_URL ??
+  (process.env.VERCEL_PROJECT_PRODUCTION_URL
+    ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+    : "http://localhost:3000");
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),

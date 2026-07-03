@@ -10,7 +10,7 @@ Dune 20000). Horisontal på desktop, vertikal på mobil.
 ```bash
 npm install
 npm run dev      # http://localhost:3000
-npm test         # enhetstester for skala.ts + dodge.ts
+npm test         # enhetstester for skala.ts + dodge.ts + datavalidering av seed.json
 npm run build    # produksjonsbygg
 ```
 
@@ -21,12 +21,13 @@ Kopier en eksisterende linje og endre verdiene:
 
 ```json
 {
-  "tittel": "Mad Max: Fury Road",
+  "tittel": "Ghost in the Shell",
   "medium": "film",
-  "lagetAar": 2015,
-  "foregaarFra": 2070,
-  "foregaarTil": 2070,
-  "wiki": "https://en.wikipedia.org/wiki/Mad_Max:_Fury_Road"
+  "skaper": "Mamoru Oshii",
+  "lagetAar": 1995,
+  "foregaarFra": 2029,
+  "foregaarTil": 2029,
+  "wiki": "https://en.wikipedia.org/wiki/Ghost_in_the_Shell_(1995_film)"
 }
 ```
 
@@ -46,6 +47,7 @@ Lagre fila — siden oppdaterer seg selv. **Ingen kodeendring trengs.**
 | `merknad`     | nei     | Kort tekst i kortet.                                                 |
 | `kilde`       | nei     | Kildehenvisning (vises i kortet).                                   |
 | `wiki`        | nei     | Direktelenke. Mangler den, søkes det på tittelen på Wikipedia.      |
+| `bilde`       | nei     | Thumbnail-URL (Wikipedia/Commons). Markør på mobil + bilde i kortet. Feiler lasting, brukes formmarkøren. |
 
 > **f.Kr.:** bruk negative år. Spartacus foregår i 73 f.Kr. → `"foregaarFra": -73`.
 
@@ -61,6 +63,7 @@ Bakgrunnen (ekte historie) ligger i `ankere`-lista i samme fil:
   deles automatisk i vertikale kolonner.
 - `type: "hendelse"` → linje + etikett på aksen (`til` lik `fra`).
 - `type: "oppfinnelse"` → stjerne + prikket linje (når noe ble oppfunnet, `til` lik `fra`).
+- `type: "person"` → svakt livsbånd bak aksen (`fra` = født, `til` = død).
 - `vekt` (valgfri) → prioritet når plassen er trang.
 
 Epokene styrer **ikke** akse-tettheten — den drives av verkene. Epokene er
