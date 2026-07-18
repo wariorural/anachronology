@@ -607,6 +607,7 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
   // pointermove/wheel fyrer (ProMotion = 120 Hz) → re-render følger skjermens takt.
   const planleggZoom = useCallback(
     (z: number, v: number) => {
+      avbrytZoomTween(); // live gest vinner alltid over en pågående tween
       venterZoom.current = { z, v };
       if (zoomRafRef.current == null) {
         zoomRafRef.current = requestAnimationFrame(() => {
@@ -718,6 +719,33 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
     else el.scrollTo({ top: mål, ...opts });
   };
 
+  // Diskret zoom («+N», ±-knappene) tweenes over ~260 ms (ease-out-cubic) via
+  // eksisterende zoomTil per frame — klyngen «blomstrer» opp i stedet for å
+  // hoppe. Live gester (pinch/wheel) forblir direkte og avbryter tweenen.
+  const zoomTweenRef = useRef<number | null>(null);
+  const avbrytZoomTween = useCallback(() => {
+    if (zoomTweenRef.current != null) {
+      cancelAnimationFrame(zoomTweenRef.current);
+      zoomTweenRef.current = null;
+    }
+  }, []);
+  const tweenZoom = (fra: number, til: number, steg: (z: number) => void) => {
+    avbrytZoomTween();
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      steg(til);
+      return;
+    }
+    const t0 = performance.now();
+    const DUR = 260;
+    const kjør = (t: number) => {
+      const p = Math.min(1, (t - t0) / DUR);
+      const e = 1 - (1 - p) ** 3;
+      steg(fra + (til - fra) * e);
+      zoomTweenRef.current = p < 1 ? requestAnimationFrame(kjør) : null;
+    };
+    zoomTweenRef.current = requestAnimationFrame(kjør);
+  };
+
   // Velg et verk. På mobil: sørg for at både markøren og laget-året (leap-linjas
   // andre ende) er synlige i ØVRE halvdel — kortet (peek) dekker nedre del.
   const velg = (idx: number) => {
@@ -747,8 +775,11 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
     const el = scrollRef.current;
     if (!el) return;
     tikk();
-    ankerRef.current = { aar, v: synsLangs(el) / 2 };
-    setZoom((z) => Math.min(zoomMaks, +(z * 2.2).toFixed(3)));
+    const til = Math.min(zoomMaks, +(zoom * 2.2).toFixed(3));
+    tweenZoom(zoom, til, (z) => {
+      ankerRef.current = { aar, v: synsLangs(el) / 2 };
+      setZoom(+z.toFixed(3));
+    });
   };
 
   // Piltaster flytter fokus til forrige/neste markør i tid (roving): ←/→ desktop, ↑/↓ mobil.
@@ -858,7 +889,7 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
               type="button"
               className="tm-zoom-btn"
               aria-label="Zoom out"
-              onClick={() => zoomTil(zoom / 1.4, midtLangs())}
+              onClick={() => tweenZoom(zoom, zoom / 1.4, (z) => zoomTil(z, midtLangs()))}
             >
               −
             </button>
@@ -877,7 +908,7 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
               type="button"
               className="tm-zoom-btn"
               aria-label="Zoom in"
-              onClick={() => zoomTil(zoom * 1.4, midtLangs())}
+              onClick={() => tweenZoom(zoom, zoom * 1.4, (z) => zoomTil(z, midtLangs()))}
             >
               +
             </button>
