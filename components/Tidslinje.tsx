@@ -5,6 +5,7 @@ import type { Verk, Anker, Medium } from "@/lib/typer";
 import { lagSkala } from "@/lib/skala";
 import { dodge } from "@/lib/dodge";
 import { tikk } from "@/lib/haptikk";
+import { LAG_Z, lagOffset, tiltVinkel, fjaerSteg, iRo, hastighet } from "@/lib/relieff";
 import AkseLag from "./AkseLag";
 import Spor from "./Spor";
 import Kort from "./Kort";
@@ -216,12 +217,26 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
   const sentrumAarRef = useRef<number | null>(null);
   // Siste målte container-mål → skiller ekte resize fra no-op (unngår stale anker).
   const dimRef = useRef({ w: 0, h: 0 });
-  // Papirrelieffet: scene + dybdelag (imperative transforms i fase C).
+  // Papirrelieffet: scene + dybdelag (imperative transforms — aldri state).
   const sceneRef = useRef<HTMLDivElement>(null);
   const lagRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const settLagRef = (navn: string) => (el: HTMLDivElement | null) => {
     lagRefs.current[navn] = el;
   };
+  // Parallakse/tilt-motoren: selvterminerende rAF-løkke med fjærer per lag.
+  const motorRef = useRef({
+    raf: null as number | null,
+    sistT: 0,
+    v: 0, // filtrert scrollhastighet (px/ms)
+    prøve: null as { pos: number; t: number } | null,
+    off: Object.fromEntries(
+      Object.keys(LAG_Z).map((k) => [k, [0, 0] as [number, number]]),
+    ),
+    tilt: [0, 0] as [number, number],
+  });
+  // Vakter leses per frame via ref (rAF-closure kan være gammel).
+  const motorPåRef = useRef(false);
+  const kjørMotorRef = useRef<() => void>(() => {});
   // Årstall-HUD (mobil): oppdateres imperativt fra påScroll — se AarHud.tsx.
   const hudRef = useRef<HTMLDivElement>(null);
   const hudAarRef = useRef<HTMLSpanElement>(null);
@@ -576,6 +591,81 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
     history.replaceState(null, "", url);
   }, [valgt, verk]);
 
+  // Nullstill relieff-bevegelsen SYNKRONT — kalles før all clientX/Y-matte
+  // (zoom/pinch) og ved layoutbytte, så ankerår-regnestykket aldri ser en
+  // transformert scene.
+  const nullstillRelieff = useCallback(() => {
+    const m = motorRef.current;
+    if (m.raf != null) cancelAnimationFrame(m.raf);
+    m.raf = null;
+    m.v = 0;
+    m.prøve = null;
+    m.tilt = [0, 0];
+    for (const k of Object.keys(m.off)) m.off[k] = [0, 0];
+    if (sceneRef.current) sceneRef.current.style.transform = "";
+    for (const el of Object.values(lagRefs.current)) {
+      if (el) el.style.transform = "";
+    }
+  }, []);
+
+  // Motor-frame: demp hastighet, fjærdriv tilt + per-lag heng, stopp i ro.
+  kjørMotorRef.current = () => {
+    const m = motorRef.current;
+    m.raf = null;
+    if (!motorPåRef.current) {
+      nullstillRelieff();
+      return;
+    }
+    const nå = performance.now();
+    const dt = Math.max(1, nå - m.sistT);
+    m.sistT = nå;
+    m.v *= Math.exp(-dt / 140); // scroll-stopp → hastigheten dør ut
+    const el = scrollRef.current;
+    const scene = sceneRef.current;
+    const rest: number[] = [m.v * 20];
+
+    // Tilt på scenen (self-perspective; .tm-scroll forblir utransformert)
+    const tiltMål = tiltVinkel(m.v);
+    m.tilt = fjaerSteg(m.tilt[0], m.tilt[1], tiltMål, dt);
+    rest.push(m.tilt[0], m.tilt[1] * 30);
+    if (scene && el) {
+      if (Math.abs(m.tilt[0]) < 0.02) {
+        scene.style.transform = "";
+      } else {
+        const midt = vannrett
+          ? el.scrollLeft + el.clientWidth / 2
+          : el.scrollTop + el.clientHeight / 2;
+        scene.style.transformOrigin = vannrett
+          ? `${midt}px 50%`
+          : `50% ${midt}px`;
+        scene.style.transform = `perspective(1200px) rotateX(${(vannrett ? 1 : -1) * m.tilt[0]}deg)`;
+      }
+    }
+
+    // Per-lag heng langs tidsaksen
+    for (const navn of Object.keys(LAG_Z)) {
+      const mål = lagOffset(m.v, LAG_Z[navn]);
+      m.off[navn] = fjaerSteg(m.off[navn][0], m.off[navn][1], mål, dt);
+      const pos = m.off[navn][0];
+      rest.push(pos, m.off[navn][1] * 30);
+      const lagEl = lagRefs.current[navn];
+      if (lagEl) {
+        lagEl.style.transform =
+          Math.abs(pos) < 0.05
+            ? ""
+            : vannrett
+              ? `translate3d(${pos.toFixed(2)}px, 0, 0)`
+              : `translate3d(0, ${pos.toFixed(2)}px, 0)`;
+      }
+    }
+
+    if (!iRo(rest)) {
+      m.raf = requestAnimationFrame(() => kjørMotorRef.current());
+    } else {
+      nullstillRelieff();
+    }
+  };
+
   // HUD-en (mobil) skrives rett i DOM — scroll skal aldri re-rendre SVG-treet.
   const oppdaterHud = useCallback(
     (sentrum: number) => {
@@ -625,6 +715,18 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
     );
     sentrumAarRef.current = sentrum;
     if (kompakt) oppdaterHud(sentrum);
+    // Relieff-motoren: mat hastighetsestimatet, vekk løkka om den sover.
+    if (motorPåRef.current) {
+      const m = motorRef.current;
+      const pos = lesScroll(el);
+      const nå = performance.now();
+      if (m.prøve) m.v = hastighet(m.prøve, { pos, t: nå }, m.v);
+      m.prøve = { pos, t: nå };
+      if (m.raf == null) {
+        m.sistT = nå;
+        m.raf = requestAnimationFrame(() => kjørMotorRef.current());
+      }
+    }
     if (kompakt && visIntro) {
       const pos = lesScroll(el);
       if (introScroll0.current == null) introScroll0.current = pos;
@@ -638,6 +740,7 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
   // Zoom ankret i et viewport-punkt langs tidsaksen (vLangs = px fra start-kanten).
   const zoomTil = useCallback(
     (nyZoom: number, vLangs: number) => {
+      nullstillRelieff(); // ankermatten må se en utransformert scene
       const el = scrollRef.current;
       const z = Math.max(ZOOM_MIN, Math.min(zoomMaks, +nyZoom.toFixed(3)));
       // Kun når zoom FAKTISK endres — ellers bailer setZoom(z) (ingen re-render), effekten
@@ -658,6 +761,7 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
   const planleggZoom = useCallback(
     (z: number, v: number) => {
       avbrytZoomTween(); // live gest vinner alltid over en pågående tween
+      nullstillRelieff(); // pinch-matte skal aldri se tilt/heng
       venterZoom.current = { z, v };
       if (zoomRafRef.current == null) {
         zoomRafRef.current = requestAnimationFrame(() => {
@@ -922,6 +1026,20 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
   const svgW = vannrett ? layout.langsTotal : W;
   const svgH = vannrett ? H : layout.langsTotal;
   const wrap = vannrett ? `translate(${STARTX}, 0)` : `translate(0, ${TOPP})`;
+
+  // Motor-vakt: relieff på OG scenen ikke absurd stor (lineær modus kan gi
+  // 2M px — kompositor-tekstur-risiko, særlig Safari). Skygger beholdes.
+  motorPåRef.current = relieff && layout.langsTotal <= 500_000;
+
+  // Relieff av (toggle/PRM) → rydd transforms umiddelbart.
+  useEffect(() => {
+    if (!relieff) nullstillRelieff();
+  }, [relieff, nullstillRelieff]);
+
+  // Layoutbytte (zoom/filter/rotasjon/modus) → aldri arv gamle offsets.
+  useEffect(() => {
+    nullstillRelieff();
+  }, [layout, nullstillRelieff]);
 
   // Delte props for dybdelagene (Papirrelieffet) — samme geometri per lag.
   const akseProps = {
