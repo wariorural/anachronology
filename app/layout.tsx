@@ -51,6 +51,10 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  // Nettleser-kromen farges som papiret, og appen tegner inn i safe-area
+  // (hjem-indikator/notch) — kantene håndteres med env(safe-area-inset-*).
+  themeColor: "#e7e4dd",
+  viewportFit: "cover",
 };
 
 export default function RootLayout({

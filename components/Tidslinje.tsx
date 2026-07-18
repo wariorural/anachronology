@@ -4,6 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import type { Verk, Anker, Medium } from "@/lib/typer";
 import { lagSkala } from "@/lib/skala";
 import { dodge } from "@/lib/dodge";
+import { tikk } from "@/lib/haptikk";
 import AkseLag from "./AkseLag";
 import Spor from "./Spor";
 import Kort from "./Kort";
@@ -630,6 +631,7 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
   const hoppTilNaa = () => {
     const el = scrollRef.current;
     if (!el) return;
+    tikk();
     const mål = OFFSET + layout.skala.yearToY(naa) - synsLangs(el) / 2;
     const glatt = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const opts: ScrollToOptions = { behavior: glatt ? "smooth" : "auto" };
@@ -641,6 +643,7 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
   const spreUt = (aar: number) => {
     const el = scrollRef.current;
     if (!el) return;
+    tikk();
     ankerRef.current = { aar, v: synsLangs(el) / 2 };
     setZoom((z) => Math.min(zoomMaks, +(z * 2.2).toFixed(3)));
   };
@@ -978,7 +981,10 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
                     erValgt={idx === valgt}
                     tabbar={idx === tabbarIdx}
                     onFokus={() => setFokusIdx(idx)}
-                    onVelg={() => setValgt(idx)}
+                    onVelg={() => {
+                      tikk();
+                      setValgt(idx);
+                    }}
                   />
                 ))}
               {/* «+N» (mobil): foldede verk i en tett rad — trykk zoomer inn og sprer dem */}
