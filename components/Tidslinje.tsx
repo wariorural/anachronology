@@ -8,6 +8,7 @@ import { tikk } from "@/lib/haptikk";
 import AkseLag from "./AkseLag";
 import Spor from "./Spor";
 import Kort from "./Kort";
+import AnkerKort from "./AnkerKort";
 import AarHud from "./AarHud";
 import { fmtAar } from "@/lib/format";
 
@@ -109,6 +110,8 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
   const [zoom, setZoom] = useState(2);
   const [modus, setModus] = useState<"elastisk" | "lineaer">("elastisk");
   const [valgt, setValgt] = useState<number | null>(null);
+  // Trykket anker (epoke/person/hendelse/oppfinnelse) → eget grunt kort.
+  const [valgtAnker, setValgtAnker] = useState<Anker | null>(null);
   const [W, setW] = useState(0);
   const [H, setH] = useState(0);
   // NÅ friskes opp klientside: bygge-verdien blir ellers stående feil hver
@@ -808,6 +811,13 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
       ?.focus();
   };
 
+  // Anker-tap: samme haptikk som verk-valg. Stabil referanse → memo(AkseLag)
+  // re-rendrer ikke av at callbacken finnes.
+  const velgAnker = useCallback((a: Anker) => {
+    tikk();
+    setValgtAnker(a);
+  }, []);
+
   // Lukk kortet og returner fokus til markøren som åpnet det (ikke bryt roving).
   const lukkKort = () => {
     const forrige = valgt;
@@ -1122,6 +1132,7 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
                 bunnCross={bunnCross}
                 kompakt={kompakt}
                 vannrett={vannrett}
+                onVelgAnker={velgAnker}
               />
               {/* Valgt spor rendres SIST → ring + tittel havner øverst. */}
               {(valgt == null
@@ -1172,6 +1183,23 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
                     </text>
                   </g>
                 ))}
+              {/* Epoke-etikettenes treff-flater OVER verkene: i tette strøk dekker
+                  verkenes 44px-treffsirkler båndene — et tap på selve etiketten
+                  skal likevel alltid åpne epoken. */}
+              <AkseLag
+                skala={layout.skala}
+                ankere={synligeAnkere}
+                venstreX={VENSTRE}
+                W={W}
+                H={H}
+                naa={naa}
+                toppCross={toppCross}
+                bunnCross={bunnCross}
+                kompakt={kompakt}
+                vannrett={vannrett}
+                onVelgAnker={velgAnker}
+                lag="treff"
+              />
             </g>
           </svg>
         )}
@@ -1198,6 +1226,8 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
         naa={naa}
         onLukk={lukkKort}
       />
+
+      <AnkerKort anker={valgtAnker} onLukk={() => setValgtAnker(null)} />
     </div>
   );
 }

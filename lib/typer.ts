@@ -34,6 +34,10 @@ export interface Anker {
   til: number;
   /** Prominens — styrer etikett-prioritet når plassen er trang. */
   vekt?: number;
+  /** Én setning til anker-kortet (ankrene er trykkbare). */
+  merknad?: string;
+  /** Valgfri presis lenke (Wikipedia o.l.). Mangler den, søkes på tittelen. */
+  wiki?: string;
 }
 
 export interface Datasett {
