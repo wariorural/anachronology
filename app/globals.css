@@ -897,6 +897,24 @@ body {
   background: var(--rule);
 }
 
+/* E5: engangs affordance-puls på gripa — to rolige pust, så aldri mer */
+.tm-gripe-hint::before {
+  animation: tm-gripe-puls 1.1s ease-in-out 2;
+}
+
+@keyframes tm-gripe-puls {
+  50% {
+    transform: scaleX(1.35);
+    background: var(--ink-soft);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tm-gripe-hint::before {
+    animation: none;
+  }
+}
+
 @media (max-width: 699px) {
   .tm-kort-gripe {
     display: block;

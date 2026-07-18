@@ -65,6 +65,9 @@ export default function Kort({ verk, naa, onLukk, fraPunkt, relieff }: Props) {
   // Mobil: arket åpner i «peek» (tittel + punchline; tidslinja bak forblir
   // synlig) og kan dras til «full». Desktop/landskap ignorerer attributtet.
   const [snap, setSnap] = useState<"peek" | "full">("peek");
+  // E5: gripa pulser svakt de FØRSTE gangene kortet åpnes — affordance-hint,
+  // engangs (localStorage), aldri mas.
+  const [gripeHint, setGripeHint] = useState(false);
 
   useEffect(() => {
     const d = ref.current;
@@ -72,6 +75,14 @@ export default function Kort({ verk, naa, onLukk, fraPunkt, relieff }: Props) {
     if (verk) {
       setVist(verk);
       setSnap("peek");
+      try {
+        if (!localStorage.getItem("tm-gripe-hint")) {
+          localStorage.setItem("tm-gripe-hint", "1");
+          setGripeHint(true);
+        }
+      } catch {
+        /* uten lagring: ingen hint — heller for lite enn mas */
+      }
       if (!d.open) {
         d.showModal();
         // showModal() autofokuserer lukkeknappen → synlig fokus-ring ved åpning.
@@ -215,7 +226,7 @@ export default function Kort({ verk, naa, onLukk, fraPunkt, relieff }: Props) {
           {/* Gripe-sone: dekorativ (aria-hidden) — lukking er fortsatt fullt
               tastatur-tilgjengelig via × og Escape. Tap veksler peek/full. */}
           <div
-            className="tm-kort-gripe"
+            className={`tm-kort-gripe${gripeHint ? " tm-gripe-hint" : ""}`}
             aria-hidden="true"
             onClick={() => {
               if (!erMobil()) return;

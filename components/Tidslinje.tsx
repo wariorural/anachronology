@@ -4,7 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import type { Verk, Anker, Medium } from "@/lib/typer";
 import { lagSkala } from "@/lib/skala";
 import { dodge } from "@/lib/dodge";
-import { tikk } from "@/lib/haptikk";
+import { tikk, dobbelTikk } from "@/lib/haptikk";
 import { LAG_Z, lagOffset, tiltVinkel, fjaerSteg, iRo, hastighet } from "@/lib/relieff";
 import AkseLag from "./AkseLag";
 import Spor from "./Spor";
@@ -215,6 +215,8 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
   const venterZoom = useRef<{ z: number; v: number } | null>(null);
   // Sentrum-året (oppdateres ved scroll) → gjenopprettes ved rotasjon/resize.
   const sentrumAarRef = useRef<number | null>(null);
+  // Forrige sentrum-år — for gap-krysnings-haptikk (E3).
+  const forrigeSentrumRef = useRef<number | null>(null);
   // Siste målte container-mål → skiller ekte resize fra no-op (unngår stale anker).
   const dimRef = useRef({ w: 0, h: 0 });
   // Papirrelieffet: scene + dybdelag (imperative transforms — aldri state).
@@ -734,7 +736,37 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
     }
     // FAB-pila: NÅ ligger mot framtida (ned/høyre) når sentrum er i fortida.
     const retning = sentrum <= naa ? 1 : -1;
-    if (retning !== naaRetning) setNaaRetning(retning);
+    if (retning !== naaRetning) {
+      setNaaRetning(retning);
+      // E3: å krysse NÅ under scroll er en grensepassering — dobbel puls +
+      // bladet dirrer (kun mobil-relieff; startetRef skiller ekte scroll).
+      if (kompakt && motorPåRef.current && startetRef.current) {
+        dobbelTikk();
+        lagRefs.current.naa?.animate(
+          [
+            { translate: "0 0" },
+            { translate: "0 -2px" },
+            { translate: "0 1.2px" },
+            { translate: "0 0" },
+          ],
+          { duration: 220, easing: "ease-out" },
+        );
+      }
+    }
+    // E3: kryssing av et kollapsert strekk («340 yrs skipped») kjennes som
+    // ett lite hakk — århundrene du hopper over har fysisk motstand.
+    const forrige = forrigeSentrumRef.current;
+    forrigeSentrumRef.current = sentrum;
+    if (forrige != null && kompakt && motorPåRef.current) {
+      const lo = Math.min(forrige, sentrum);
+      const hi = Math.max(forrige, sentrum);
+      for (const seg of layout.skala.segmenter) {
+        if (seg.kollapset && seg.fra >= lo && seg.til <= hi) {
+          tikk(6);
+          break;
+        }
+      }
+    }
   };
 
   // Zoom ankret i et viewport-punkt langs tidsaksen (vLangs = px fra start-kanten).
@@ -1086,6 +1118,45 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
     onVelgAnker: velgAnker,
   };
   const klar = W > 0 && (!vannrett || H > 0);
+
+  // E4: landings-koreografi — én gang per sesjon «legger» lagene seg:
+  // utklippene faller på arket, nålene stikkes i, NÅ-bladet reiser seg sist.
+  const landetRef = useRef(false);
+  useEffect(() => {
+    if (!klar || !relieff || landetRef.current) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    try {
+      if (sessionStorage.getItem("tm-landet")) {
+        landetRef.current = true;
+        return;
+      }
+      sessionStorage.setItem("tm-landet", "1");
+    } catch {
+      /* privat modus: koreografien spilles hver gang — helt greit */
+    }
+    landetRef.current = true;
+    const rekkefolge: [string, number, number][] = [
+      ["epoker", -6, 0],
+      ["personer", -8, 70],
+      ["verk", -10, 150],
+      ["naa", -14, 300],
+    ];
+    for (const [navn, fall, forsinkelse] of rekkefolge) {
+      lagRefs.current[navn]?.animate(
+        [
+          { translate: `0 ${fall}px`, opacity: 0 },
+          { translate: "0 0", opacity: 1 },
+        ],
+        {
+          duration: 320,
+          delay: forsinkelse,
+          easing: "cubic-bezier(0.16, 1, 0.3, 1)",
+          fill: "backwards",
+        },
+      );
+    }
+  }, [klar, relieff]);
+
 
   return (
     <div className="tm-app" data-vannrett={vannrett} data-relieff={relieff}>

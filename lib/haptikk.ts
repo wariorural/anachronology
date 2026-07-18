@@ -7,3 +7,12 @@ export function tikk(ms = 8) {
     // vibrate kan kaste i innbygde webviews med strenge policies — ignorer.
   }
 }
+
+/** Dobbel puls — grensepasseringer (NÅ-linja). */
+export function dobbelTikk() {
+  try {
+    navigator.vibrate?.([15, 40, 15]);
+  } catch {
+    // som over
+  }
+}
