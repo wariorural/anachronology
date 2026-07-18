@@ -188,7 +188,12 @@ function AkseLag({ skala, ankere, venstreX, W, H, naa, toppCross = 108, bunnCros
     }
     return (
       <g key={`epoke-${i}`} {...interaktiv(a)}>
+        {/* Papirrelieffet: utklippet ligger PÅ arket — umbra + penumbra ned-høyre
+            (lys fra topp-venstre) + høylys-kant. Skjules i flat mode via CSS. */}
+        <rect className="tm-skygge" x={rekt.x + 4} y={rekt.y + 6} width={rekt.width} height={rekt.height} rx={10} fill="var(--skygge-svak)" />
+        <rect className="tm-skygge" x={rekt.x + 2} y={rekt.y + 3} width={rekt.width} height={rekt.height} rx={10} fill="var(--skygge)" />
         <rect {...rekt} rx={10} fill="var(--bg-baand)" />
+        <rect className="tm-hoylys" {...rekt} rx={10} fill="none" stroke="var(--hoylys)" strokeWidth={1} />
         {visLabel && (
           /* Papir-halo: etiketten forblir lesbar der bånd, grid og livsbånd
              krysser — før druknet den i sitt eget stratum. */
@@ -250,6 +255,7 @@ function AkseLag({ skala, ankere, venstreX, W, H, naa, toppCross = 108, bunnCros
     const visNavn = plassTilNavn >= a.tittel.length * 4.8 + 10;
     return (
       <g key={`person-${i}`} {...interaktiv(a)}>
+        <rect className="tm-skygge" x={rekt.x + 2} y={rekt.y + 3} width={rekt.width} height={rekt.height} rx={pTykk / 2} fill="var(--skygge-svak)" />
         <rect {...rekt} rx={pTykk / 2} fill="var(--bg-person)" />
         {/* Navn kun på desktop — mobil holdes ren (bare det svake båndet bak bildene). */}
         {vannrett && visNavn && (
@@ -483,6 +489,24 @@ function AkseLag({ skala, ankere, venstreX, W, H, naa, toppCross = 108, bunnCros
           Flankert av tesen i klartekst: fylt/hul-koden forklares VED linja,
           ikke bare i en fjern legende. */}
       <g>
+        {/* NÅ-bladets skygge inn over framtidssiden (relieff): én gradient-flate */}
+        <defs>
+          <linearGradient
+            id="tm-naa-skygge"
+            x1={vannrett ? 0 : 0}
+            x2={vannrett ? 1 : 0}
+            y1={0}
+            y2={vannrett ? 0 : 1}
+          >
+            <stop offset="0" stopColor="var(--skygge)" />
+            <stop offset="1" stopColor="var(--skygge)" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        {vannrett ? (
+          <rect className="tm-skygge" x={yNaa} y={0} width={30} height={H} fill="url(#tm-naa-skygge)" />
+        ) : (
+          <rect className="tm-skygge" x={0} y={yNaa} width={W} height={30} fill="url(#tm-naa-skygge)" />
+        )}
         {tverrLinje(yNaa, "naa-linje", "var(--accent)", 2.5)}
         {vannrett ? (
           <>

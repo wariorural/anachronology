@@ -122,6 +122,39 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
   }, []);
   // Mobil-FAB: peker mot NÅ relativt til viewport-sentrum (↑/↓), ikke en løgn.
   const [naaRetning, setNaaRetning] = useState<1 | -1>(1);
+  // Papirrelieffet: fysisk dybde (skygger/lag/parallakse). Flat mode = dagens
+  // utgave. Initial: på, MED MINDRE reduced motion; brukervalg persisteres og
+  // reduced motion vinner alltid live.
+  const [relieff, setRelieff] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const lagret = (() => {
+      try {
+        return localStorage.getItem("tm-relieff");
+      } catch {
+        return null;
+      }
+    })();
+    setRelieff(mq.matches ? false : lagret != null ? lagret === "1" : true);
+    const paaEndring = () => {
+      if (mq.matches) setRelieff(false);
+    };
+    mq.addEventListener("change", paaEndring);
+    return () => mq.removeEventListener("change", paaEndring);
+  }, []);
+  const byttRelieff = () => {
+    tikk();
+    setRelieff((r) => {
+      const ny = !r;
+      try {
+        localStorage.setItem("tm-relieff", ny ? "1" : "0");
+      } catch {
+        /* privat modus — valget glemmes */
+      }
+      return ny;
+    });
+  };
+
   // Engangs konsept-stripe (mobil) — setningen som bærer ideen, avvisbar.
   const [visIntro, setVisIntro] = useState(false);
   useEffect(() => {
@@ -886,7 +919,7 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
   const klar = W > 0 && (!vannrett || H > 0);
 
   return (
-    <div className="tm-app" data-vannrett={vannrett}>
+    <div className="tm-app" data-vannrett={vannrett} data-relieff={relieff}>
       <header className="tm-header">
         <div className="tm-bar">
           <div className="tm-brand">
@@ -943,6 +976,15 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
                 — linear scale; empty stretches of time are no longer compressed
               </span>
             </button>
+            <button
+              type="button"
+              className="tm-relieff-toggle"
+              aria-pressed={relieff}
+              onClick={byttRelieff}
+              title="Paper relief — depth, shadows and parallax"
+            >
+              Depth
+            </button>
             {/* Ekstra view: planetarium-instrumentet. Papirutgaven er standard. */}
             <a className="tm-chrono-lenke" href="/chronoscope">
               Chronoscope ↗
@@ -966,6 +1008,20 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
           </div>
         </div>
         <div id="tm-skuff" className="tm-skuff" data-open={skuffÅpen}>
+          {/* Mobil: relieff-toggle + Chronoscope-lenke bor i skuffen (headeren er full) */}
+          <div className="tm-skuff-rad">
+            <button
+              type="button"
+              className="tm-relieff-toggle tm-skuff-relieff"
+              aria-pressed={relieff}
+              onClick={byttRelieff}
+            >
+              Depth
+            </button>
+            <a className="tm-chrono-lenke tm-skuff-chrono" href="/chronoscope">
+              Chronoscope ↗
+            </a>
+          </div>
         <ul className="tm-legend" aria-label="Legend">
           <li>
             <svg width="13" height="13" aria-hidden="true">
@@ -1124,6 +1180,15 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
             role="group"
             aria-label="Timeline: fiction placed by the year it's set in, against real history and a NOW line."
           >
+            {/* Papirrelieffet: felles myk pin-skygge — 175 rene gradient-fills,
+                ingen filtre. Refereres fra Spor via url(#tm-pinskygge). */}
+            <defs>
+              <radialGradient id="tm-pinskygge">
+                <stop offset="0" stopColor="var(--skygge)" />
+                <stop offset="0.7" stopColor="var(--skygge-svak)" />
+                <stop offset="1" stopColor="var(--skygge)" stopOpacity="0" />
+              </radialGradient>
+            </defs>
             <g transform={wrap}>
               <AkseLag
                 skala={layout.skala}

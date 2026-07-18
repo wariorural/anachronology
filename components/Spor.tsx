@@ -223,6 +223,18 @@ export default function Spor({
 
       {brukBilde ? (
         <g>
+          {/* Relieff: nålen står i papiret — kontakt-skygge ned-høyre.
+              Valgt = løftet høyere = større, fjernere skygge. */}
+          <rect
+            className="tm-skygge"
+            x={x0 + (erValgt ? 5 : 3)}
+            y={y0 + (erValgt ? 7 : 4)}
+            width={s}
+            height={s}
+            rx={8}
+            fill={erValgt ? "var(--skygge)" : "var(--skygge-svak)"}
+            pointerEvents="none"
+          />
           <clipPath id={klippId}>
             <rect x={x0} y={y0} width={s} height={s} rx={6} />
           </clipPath>
@@ -253,6 +265,15 @@ export default function Spor({
         </g>
       ) : (
         <g>
+          <ellipse
+            className="tm-skygge"
+            cx={x + (erValgt ? 4 : 2.5)}
+            cy={y + (kompakt ? rFallback : r) * 0.9 + (erValgt ? 4 : 2.5)}
+            rx={(kompakt ? rFallback : r) * (erValgt ? 1.7 : 1.4)}
+            ry={(kompakt ? rFallback : r) * 0.55}
+            fill="url(#tm-pinskygge)"
+            pointerEvents="none"
+          />
           <Markor verk={verk} x={x} y={y} innhentet={innhentet} r={kompakt ? rFallback : r} />
           {/* oransje prikk — gir fiksjons-fargen også til punkt-verk uten spenn.
               TV: prikken flyttes ned så den ikke visker ut delelinja (TV-koden). */}

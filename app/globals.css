@@ -23,6 +23,12 @@
 
   /* Én kontrollhøyde = én vertikal rytme i masthead (knapper OG chips). */
   --control-h: 36px;
+
+  /* Papirrelieffet: én lyskilde (topp-venstre), skygger i VARM papirtone —
+     aldri sort. Umbra (nær, tettere) + penumbra (lenger, svakere). */
+  --skygge: rgba(74, 60, 42, 0.16);
+  --skygge-svak: rgba(74, 60, 42, 0.08);
+  --hoylys: rgba(255, 253, 246, 0.7);
 }
 
 /* Skjult visuelt, lest av skjermlesere — tidslinjas tekstlige sammendrag. */
@@ -307,6 +313,12 @@ body {
   gap: 10px;
 }
 
+/* Skuff-raden (relieff + Chronoscope) finnes bare på mobil — på desktop bor
+   begge i headeren og raden ville dublert dem. */
+.tm-skuff-rad {
+  display: none;
+}
+
 /* Klikk-utenfor-lag når skuffen er åpen (mobil). Ligger over tidslinja, men under
    header (z-index:30 i mobil/landskap) så rail-knappene forblir trykkbare. */
 .tm-skuff-backdrop {
@@ -415,7 +427,7 @@ body {
   border: 1px solid var(--accent);
   border-radius: 999px;
   cursor: pointer;
-  box-shadow: 0 6px 20px -8px rgba(26, 25, 22, 0.5);
+  box-shadow: 0 6px 20px -8px rgba(74, 60, 42, 0.5);
 }
 
 .tm-fab:active {
@@ -805,7 +817,7 @@ body {
   border-radius: 16px 16px 0 0;
   background: var(--paper);
   color: var(--ink);
-  box-shadow: 0 -18px 50px -20px rgba(26, 25, 22, 0.4);
+  box-shadow: 0 -18px 50px -20px rgba(74, 60, 42, 0.45);
 
   opacity: 0;
   transform: translateY(100%);
@@ -1004,6 +1016,27 @@ body {
   cursor: pointer;
 }
 
+/* ---- Papirrelieffet: skygge-/høylys-noder + toggle ----
+   Flat mode (data-relieff="false" eller reduced motion) = dagens utgave:
+   alle relieff-noder skjules, ingen egen kodevei. */
+[data-relieff="false"] :is(.tm-skygge, .tm-hoylys) {
+  display: none;
+}
+
+.tm-relieff-toggle {
+  width: auto !important;
+  height: var(--control-h);
+  padding: 0 12px !important;
+  font-size: 10px !important;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.tm-relieff-toggle[aria-pressed="true"] {
+  background: var(--ink) !important;
+  color: var(--paper) !important;
+}
+
 /* Trykkbare ankere (epoker/kunstretninger, personer, hendelser, oppfinnelser):
    pointer + et forsiktig hover-løft på båndet — bakgrunnen skal invitere, ikke rope. */
 .tm-anker-knapp {
@@ -1172,7 +1205,7 @@ body {
     padding: 12px 14px;
     background: var(--paper);
     border-bottom: 1px solid var(--ink);
-    box-shadow: 0 18px 40px -24px rgba(26, 25, 22, 0.55);
+    box-shadow: 0 18px 40px -24px rgba(74, 60, 42, 0.55);
   }
   .tm-skuff[data-open="true"] {
     display: flex;
@@ -1184,6 +1217,16 @@ body {
 
   .tm-hud {
     display: flex;
+  }
+
+  /* Relieff-toggle + Chronoscope-lenke flytter fra header til skuffen */
+  .tm-controls .tm-relieff-toggle,
+  .tm-controls .tm-chrono-lenke {
+    display: none;
+  }
+  .tm-skuff-rad {
+    display: flex;
+    gap: 8px;
   }
 
   /* Roterte inline-titler skjules — tidslinja blir rent formspråk; valgt vises
@@ -1268,7 +1311,7 @@ body {
     background: var(--paper);
     border: 1px solid var(--ink);
     border-left: 0;
-    box-shadow: 18px 0 40px -24px rgba(26, 25, 22, 0.55);
+    box-shadow: 18px 0 40px -24px rgba(74, 60, 42, 0.55);
   }
   .tm-skuff[data-open="true"] {
     display: flex;
@@ -1283,7 +1326,7 @@ body {
     max-height: calc(100dvh - 28px);
     border: 1px solid var(--ink);
     border-radius: 16px;
-    box-shadow: 0 22px 60px -22px rgba(26, 25, 22, 0.5);
+    box-shadow: 0 22px 60px -22px rgba(74, 60, 42, 0.5);
     transform: translateY(10px) scale(0.98);
   }
   .tm-kort[open] {
