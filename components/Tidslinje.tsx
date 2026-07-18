@@ -943,6 +943,10 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
                 — linear scale; empty stretches of time are no longer compressed
               </span>
             </button>
+            {/* Ekstra view: planetarium-instrumentet. Papirutgaven er standard. */}
+            <a className="tm-chrono-lenke" href="/chronoscope">
+              Chronoscope ↗
+            </a>
             <button
               type="button"
               className="tm-skuff-knapp"
