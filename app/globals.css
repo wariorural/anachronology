@@ -515,6 +515,106 @@ body {
   -webkit-user-select: none;
 }
 
+/* ---- Skjelett før første måling: papir + akse + NÅ — aldri blank flash ---- */
+.tm-skjelett {
+  position: absolute;
+  inset: 0;
+  animation: tm-skjelett-puls 1.2s ease-in-out infinite alternate;
+}
+
+.tm-skjelett-akse {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 44px; /* = VENSTRE-gutteren i Tidslinje */
+  width: 1px;
+  background: var(--rule);
+}
+
+.tm-skjelett-tick {
+  position: absolute;
+  left: 32px;
+  width: 24px;
+  border-top: 1px dashed var(--rule);
+}
+
+.tm-skjelett-naa {
+  position: absolute;
+  top: 45%;
+  left: 0;
+  right: 0;
+  border-top: 2.5px solid var(--accent);
+}
+
+.tm-skjelett-naa span {
+  position: absolute;
+  top: 6px;
+  left: 52px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  color: var(--accent-text);
+}
+
+/* Desktop er horisontal — speil skjelettet før målingen har sagt sitt */
+@media (min-width: 431px) {
+  .tm-skjelett-akse {
+    top: auto;
+    left: 0;
+    right: 0;
+    bottom: 50px;
+    width: auto;
+    height: 1px;
+  }
+  .tm-skjelett-tick {
+    left: auto;
+    top: auto !important;
+    bottom: 42px;
+    width: 1px;
+    height: 16px;
+    border-top: 0;
+    border-left: 1px dashed var(--rule);
+  }
+  .tm-skjelett-tick:nth-child(2) { left: 18%; }
+  .tm-skjelett-tick:nth-child(3) { left: 38%; }
+  .tm-skjelett-tick:nth-child(4) { left: 62%; }
+  .tm-skjelett-tick:nth-child(5) { left: 82%; }
+  .tm-skjelett-naa {
+    top: 0;
+    bottom: 0;
+    left: 45%;
+    right: auto;
+    border-top: 0;
+    border-left: 2.5px solid var(--accent);
+  }
+  .tm-skjelett-naa span {
+    top: 12px;
+    left: 8px;
+  }
+}
+
+@keyframes tm-skjelett-puls {
+  from { opacity: 1; }
+  to { opacity: 0.55; }
+}
+
+/* Myk ankomst når det ekte innholdet tar over for skjelettet */
+.tm-scroll svg {
+  animation: tm-ankomst 0.15s ease-out;
+}
+
+@keyframes tm-ankomst {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tm-skjelett,
+  .tm-scroll svg {
+    animation: none;
+  }
+}
+
 /* Desktop: horisontal tidslinje → scroll langs X. */
 .tm-app[data-vannrett="true"] .tm-scroll {
   overflow-x: auto;

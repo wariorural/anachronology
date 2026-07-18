@@ -939,6 +939,20 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
         onPointerCancel={pekerOpp}
         onKeyDown={onKeyDown}
       >
+        {/* SSR/første maling: W===0 på server → skjelettet ligger i HTML-en og
+            maler papir + akse + NÅ-linje umiddelbart, til målingen er klar. */}
+        {!klar && (
+          <div className="tm-skjelett" aria-hidden="true">
+            <div className="tm-skjelett-akse" />
+            <div className="tm-skjelett-tick" style={{ top: "18%" }} />
+            <div className="tm-skjelett-tick" style={{ top: "38%" }} />
+            <div className="tm-skjelett-tick" style={{ top: "62%" }} />
+            <div className="tm-skjelett-tick" style={{ top: "82%" }} />
+            <div className="tm-skjelett-naa">
+              <span>NOW</span>
+            </div>
+          </div>
+        )}
         {klar && (
           <svg
             width={svgW}
