@@ -194,7 +194,7 @@ function AkseLag({ skala, ankere, venstreX, W, H, naa, toppCross = 108, bunnCros
             (lys fra topp-venstre) + høylys-kant. Skjules i flat mode via CSS. */}
         <rect className="tm-skygge" x={rekt.x + 4} y={rekt.y + 6} width={rekt.width} height={rekt.height} rx={10} fill="var(--skygge-svak)" />
         <rect className="tm-skygge" x={rekt.x + 2} y={rekt.y + 3} width={rekt.width} height={rekt.height} rx={10} fill="var(--skygge)" />
-        <rect {...rekt} rx={10} fill="var(--bg-baand)" />
+        <rect className="tm-baand-flate" {...rekt} rx={10} fill="var(--bg-baand)" />
         <rect className="tm-hoylys" {...rekt} rx={10} fill="none" stroke="var(--hoylys)" strokeWidth={1} />
         {visLabel && (
           /* Papir-halo: etiketten forblir lesbar der bånd, grid og livsbånd

@@ -1047,6 +1047,85 @@ body {
   z-index: 5;
 }
 
+/* ---- E1 · Trykk-fysikk: nålene kjennes fysiske ---- */
+[data-relieff="true"] .spor {
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: scale 0.1s ease;
+}
+
+[data-relieff="true"] .spor:active {
+  scale: 0.94; /* trykkes NED i papiret */
+}
+
+[data-relieff="true"] .spor[data-valgt="true"] {
+  animation: tm-sprett 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes tm-sprett {
+  0% { scale: 0.94; }
+  60% { scale: 1.05; }
+  100% { scale: 1; }
+}
+
+/* fokus-/valgring ekspanderer INN i stedet for å poppe */
+[data-relieff="true"] .tm-ring {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+[data-relieff="true"] .tm-ring[data-valgt="true"] {
+  animation: tm-ring-inn 0.18s ease-out;
+}
+
+@keyframes tm-ring-inn {
+  from { scale: 1.25; opacity: 0; }
+}
+
+/* epoke-utklippet svarer på trykk: mørkner + presses en anelse */
+[data-relieff="true"] .tm-anker-knapp {
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: scale 0.12s ease;
+}
+
+[data-relieff="true"] .tm-anker-knapp:active {
+  scale: 0.995;
+}
+
+/* ---- E2 · Materialitet: frosted vellum + varm lys-skygge ---- */
+[data-relieff="true"] .tm-kort {
+  background: color-mix(in srgb, var(--paper) 88%, transparent);
+  backdrop-filter: blur(12px) saturate(1.05);
+  -webkit-backdrop-filter: blur(12px) saturate(1.05);
+}
+
+[data-relieff="true"] .tm-kort[open]::backdrop {
+  background: linear-gradient(
+    rgba(74, 60, 42, 0.16),
+    rgba(74, 60, 42, 0.34)
+  );
+}
+
+@media (max-width: 430px) {
+  [data-relieff="true"] .tm-skuff {
+    background: color-mix(in srgb, var(--paper) 90%, transparent);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-relieff="true"] .spor,
+  [data-relieff="true"] .tm-anker-knapp {
+    transition: none;
+  }
+  [data-relieff="true"] .spor[data-valgt="true"],
+  [data-relieff="true"] .tm-ring[data-valgt="true"] {
+    animation: none;
+  }
+}
+
 .tm-relieff-toggle {
   width: auto !important;
   height: var(--control-h);
@@ -1067,8 +1146,8 @@ body {
   cursor: pointer;
 }
 
-.tm-anker-knapp:hover rect:first-of-type,
-.tm-anker-knapp:active rect:first-of-type {
+.tm-anker-knapp:hover .tm-baand-flate,
+.tm-anker-knapp:active .tm-baand-flate {
   fill: rgba(26, 25, 22, 0.1);
 }
 .tm-plus rect {

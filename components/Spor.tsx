@@ -133,6 +133,7 @@ export default function Spor({
       tabIndex={tabbar ? 0 : -1}
       className="spor"
       data-i={dataI}
+      data-valgt={erValgt}
       onClick={onVelg}
       onFocus={onFokus}
       onKeyDown={(e) => {

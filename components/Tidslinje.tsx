@@ -900,12 +900,27 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
     zoomTweenRef.current = requestAnimationFrame(kjør);
   };
 
+  // Kortets match-cut-utgangspunkt (relieff, desktop): nålens viewport-punkt.
+  const [kortFra, setKortFra] = useState<{ x: number; y: number } | null>(null);
+
   // Velg et verk. På mobil: sørg for at både markøren og laget-året (leap-linjas
   // andre ende) er synlige i ØVRE halvdel — kortet (peek) dekker nedre del.
   const velg = (idx: number) => {
     tikk();
     setValgt(idx);
-    if (!kompakt) return;
+    if (!kompakt) {
+      const s = layout.spor.find((p) => p.idx === idx);
+      const el = scrollRef.current;
+      if (s && el) {
+        const rekt = el.getBoundingClientRect();
+        setKortFra({
+          x: rekt.left + STARTX + s.x - el.scrollLeft,
+          y: rekt.top + s.y,
+        });
+      }
+      return;
+    }
+    setKortFra(null);
     const el = scrollRef.current;
     const s = layout.spor.find((p) => p.idx === idx);
     if (!el || !s || s.lagetLng == null) return;
@@ -1040,6 +1055,21 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
   useEffect(() => {
     nullstillRelieff();
   }, [layout, nullstillRelieff]);
+
+  // E1: filterbytte krysstoner scenen — verkene «legger seg i papiret» i
+  // stedet for å forsvinne abrupt. Kun relieff; aldri ved første mount.
+  const filterFørstRef = useRef(true);
+  useEffect(() => {
+    if (filterFørstRef.current) {
+      filterFørstRef.current = false;
+      return;
+    }
+    if (!motorPåRef.current) return;
+    sceneRef.current?.animate(
+      [{ opacity: 0.45 }, { opacity: 1 }],
+      { duration: 150, easing: "ease-out" },
+    );
+  }, [medier, kat]);
 
   // Delte props for dybdelagene (Papirrelieffet) — samme geometri per lag.
   const akseProps = {
@@ -1442,6 +1472,8 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
         verk={valgt != null ? verk[valgt] : null}
         naa={naa}
         onLukk={lukkKort}
+        fraPunkt={kortFra}
+        relieff={relieff}
       />
 
       <AnkerKort anker={valgtAnker} onLukk={() => setValgtAnker(null)} />
