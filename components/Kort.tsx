@@ -1,6 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import type { Verk } from "@/lib/typer";
 import { fmtAar, foregaarTekst, mediumNavn, skaperLabel, wikiUrl } from "@/lib/format";
+import { tikk } from "@/lib/haptikk";
+
+// Håndbakt fjær-easing (WAAPI linear()) — huset ruller sitt eget, ingen bibliotek.
+const FJAER = "linear(0, 0.677 12.5%, 1.036 25%, 1.07 31%, 1.007 50%, 0.996 62%, 1)";
+
+const erMobil = () => window.matchMedia("(max-width: 430px)").matches;
+const foretrekkerRo = () =>
+  window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 // Tre presise statuser i stedet for det tvetydige "innhentet". Bruker lagetÅr vs
 // foregår-år: en historisk film (lagt til fortid da den ble laget) er noe annet enn
@@ -51,12 +59,16 @@ export default function Kort({ verk, naa, onLukk }: Props) {
   const artRef = useRef<HTMLDivElement>(null);
   // Behold forrige innhold mens kortet toner UT, ellers blir panelet tomt.
   const [vist, setVist] = useState<Verk | null>(null);
+  // Mobil: arket åpner i «peek» (tittel + punchline; tidslinja bak forblir
+  // synlig) og kan dras til «full». Desktop/landskap ignorerer attributtet.
+  const [snap, setSnap] = useState<"peek" | "full">("peek");
 
   useEffect(() => {
     const d = ref.current;
     if (!d) return;
     if (verk) {
       setVist(verk);
+      setSnap("peek");
       if (!d.open) {
         d.showModal();
         // showModal() autofokuserer lukkeknappen → synlig fokus-ring ved åpning.
@@ -68,6 +80,97 @@ export default function Kort({ verk, naa, onLukk }: Props) {
     }
   }, [verk]);
 
+  // Drag-sesjon (mobil): fra gripe-sonen alltid; fra innholdet kun i peek
+  // (der er arket uansett uscrollbart). Full-tilstand scroller normalt —
+  // dismiss derfra går via gripa, ×, backdrop eller Escape.
+  const drag = useRef<{
+    y0: number;
+    yPrev: number;
+    tPrev: number;
+    vy: number;
+    aktiv: boolean;
+    fraGripe: boolean;
+  } | null>(null);
+
+  const pekerNed = (e: React.PointerEvent) => {
+    const d = ref.current;
+    if (!d || !erMobil()) return;
+    if (e.target === d) return; // backdrop-klikk håndteres som lukking, ikke drag
+    const fraGripe =
+      (e.target as HTMLElement).closest?.(".tm-kort-gripe") != null;
+    drag.current = {
+      y0: e.clientY,
+      yPrev: e.clientY,
+      tPrev: performance.now(),
+      vy: 0,
+      aktiv: false,
+      fraGripe,
+    };
+  };
+
+  const pekerFlytt = (e: React.PointerEvent) => {
+    const d = ref.current;
+    const p = drag.current;
+    if (!d || !p) return;
+    const dy = e.clientY - p.y0;
+    if (!p.aktiv) {
+      if (p.fraGripe && Math.abs(dy) > 4) p.aktiv = true;
+      else if (snap === "peek" && Math.abs(dy) > 6) p.aktiv = true;
+      else if (Math.abs(dy) > 14) {
+        drag.current = null; // indre scroll (full-tilstand) — gi fra oss gesten
+        return;
+      }
+      if (p.aktiv) d.setPointerCapture(e.pointerId);
+    }
+    if (!p.aktiv) return;
+    const nå = performance.now();
+    p.vy = (e.clientY - p.yPrev) / Math.max(1, nå - p.tPrev);
+    p.yPrev = e.clientY;
+    p.tPrev = nå;
+    // Nedover følger fingeren; oppover rubber-bander (forbi «mer» finnes ikke).
+    const t = dy > 0 ? dy : dy / (1 + -dy / 80);
+    d.style.transform = `translateY(${t}px)`;
+  };
+
+  const pekerOpp = (e: React.PointerEvent) => {
+    const d = ref.current;
+    const p = drag.current;
+    drag.current = null;
+    if (!d || !p || !p.aktiv) return;
+    const dy = e.clientY - p.y0;
+    d.style.transform = "";
+    const terskel = snap === "peek" ? 90 : 150;
+    if (dy > terskel || p.vy > 0.6) {
+      // Forbi terskelen (eller kastet): gli ut og lukk.
+      tikk(6);
+      if (foretrekkerRo()) {
+        d.close();
+        return;
+      }
+      d.style.transform = `translateY(${Math.max(dy, 0)}px)`;
+      const anim = d.animate(
+        [
+          { transform: `translateY(${Math.max(dy, 0)}px)` },
+          { transform: "translateY(110%)" },
+        ],
+        { duration: 200, easing: "ease-in" },
+      );
+      anim.onfinish = () => {
+        d.style.transform = "";
+        d.close();
+      };
+    } else if (dy < -40 && snap === "peek") {
+      tikk(6);
+      setSnap("full");
+    } else if (dy > 0 && !foretrekkerRo()) {
+      // Under terskelen: fjær tilbake på plass.
+      d.animate(
+        [{ transform: `translateY(${dy}px)` }, { transform: "translateY(0)" }],
+        { duration: 320, easing: FJAER },
+      );
+    }
+  };
+
   const v = verk ?? vist;
   const gap = v ? anakronisme(v, naa) : null;
 
@@ -75,14 +178,34 @@ export default function Kort({ verk, naa, onLukk }: Props) {
     <dialog
       ref={ref}
       className="tm-kort"
+      data-snap={snap}
       aria-labelledby="tm-kort-tittel"
       onClose={onLukk}
       onClick={(e) => {
         if (e.target === ref.current) onLukk(); // klikk på backdrop
       }}
+      onPointerDown={pekerNed}
+      onPointerMove={pekerFlytt}
+      onPointerUp={pekerOpp}
+      onPointerCancel={() => {
+        drag.current = null;
+        const d = ref.current;
+        if (d) d.style.transform = "";
+      }}
     >
       {v && (
         <article ref={artRef} tabIndex={-1}>
+          {/* Gripe-sone: dekorativ (aria-hidden) — lukking er fortsatt fullt
+              tastatur-tilgjengelig via × og Escape. Tap veksler peek/full. */}
+          <div
+            className="tm-kort-gripe"
+            aria-hidden="true"
+            onClick={() => {
+              if (!erMobil()) return;
+              tikk(6);
+              setSnap((s) => (s === "peek" ? "full" : "peek"));
+            }}
+          />
           <button
             type="button"
             className="tm-kort-lukk"
@@ -113,6 +236,15 @@ export default function Kort({ verk, naa, onLukk }: Props) {
 
           <h2 id="tm-kort-tittel" className="tm-kort-tittel">{v.tittel}</h2>
 
+          {/* Punchline FØR faktagrida: dette er innsikten — og i peek-høyde på
+              mobil er den dét som skal være synlig sammen med leap-linja bak. */}
+          {gap && (
+            <p className="tm-kort-gap">
+              {gap.hoved}
+              {gap.under && <small>{gap.under}</small>}
+            </p>
+          )}
+
           <dl className="tm-kort-fakta">
             {v.skaper && (
               <div>
@@ -136,13 +268,6 @@ export default function Kort({ verk, naa, onLukk }: Props) {
               <dd>{status(v, naa)}</dd>
             </div>
           </dl>
-
-          {gap && (
-            <p className="tm-kort-gap">
-              {gap.hoved}
-              {gap.under && <small>{gap.under}</small>}
-            </p>
-          )}
 
           {v.merknad && <p className="tm-kort-merknad">{v.merknad}</p>}
 

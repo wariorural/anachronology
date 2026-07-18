@@ -4,9 +4,12 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import type { Verk, Anker, Medium } from "@/lib/typer";
 import { lagSkala } from "@/lib/skala";
 import { dodge } from "@/lib/dodge";
+import { tikk } from "@/lib/haptikk";
 import AkseLag from "./AkseLag";
 import Spor from "./Spor";
 import Kort from "./Kort";
+import AarHud from "./AarHud";
+import { fmtAar } from "@/lib/format";
 
 interface Props {
   verk: Verk[];
@@ -52,8 +55,8 @@ const LANE0_Y = TOPP_CROSS + MARKOR_KLARING; // horisontal: der markør-banen st
 
 // Mobil: markør = liten Wikipedia-thumbnail. Bilder er brede → en y-rad rommer bare
 // noen få før de overlapper; resten foldes til ett «+N»-merke (trykk = zoom inn).
-const IMG_MOBIL = 30; // bilde-side (px)
-const ROW_BUCKET = 32; // langs-bøtte: verk i samme bøtte = «samme rad»
+const IMG_MOBIL = 38; // bilde-side (px)
+const ROW_BUCKET = 40; // langs-bøtte: verk i samme bøtte = «samme rad»
 
 const ZOOM_MIN = 0.6;
 const ZOOM_MAX = 12;
@@ -133,6 +136,9 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
       /* privat modus e.l. — stripa kommer bare igjen neste besøk */
     }
   };
+  // Avvisning skal FORTJENES, ikke kreves: første reelle scroll (>120px) betyr
+  // «jeg er i gang» — da glir stripa vekk av seg selv. ×-knappen består.
+  const introScroll0 = useRef<number | null>(null);
   // Filtre: hvilke medier vises, og om virkeligheten (ankrene) vises. Aksen
   // bygges på nytt fra de synlige verkene, så filtrering omformer tidslinja.
   const [medier, setMedier] = useState<Record<Medium, boolean>>({
@@ -174,6 +180,11 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
   const sentrumAarRef = useRef<number | null>(null);
   // Siste målte container-mål → skiller ekte resize fra no-op (unngår stale anker).
   const dimRef = useRef({ w: 0, h: 0 });
+  // Årstall-HUD (mobil): oppdateres imperativt fra påScroll — se AarHud.tsx.
+  const hudRef = useRef<HTMLDivElement>(null);
+  const hudAarRef = useRef<HTMLSpanElement>(null);
+  const hudKontekstRef = useRef<HTMLSpanElement>(null);
+  const hudIdleRef = useRef<number | null>(null);
 
   // Mål container-størrelsen klientside (holdes klientside for å unngå hydration-sprik).
   useLayoutEffect(() => {
@@ -263,7 +274,8 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
         y1: skala.yearToY(v.foregaarTil),
       })),
       // Større radius på mobil → bildene får egen bane og overlapper ikke.
-      { radius: erKompakt ? 16 : MARKOR_R + 2, laneBredde: LANE_MAX, maxLanes: 40 },
+      // Avledet av bildestørrelsen så de to aldri drifter fra hverandre.
+      { radius: erKompakt ? IMG_MOBIL / 2 + 5 : MARKOR_R + 2, laneBredde: LANE_MAX, maxLanes: 40 },
     );
 
     let maxLane = 0;
@@ -316,11 +328,9 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
         y: erVannrett ? tvers : lng0,
         x2: erVannrett ? lng1 : tvers,
         y2: erVannrett ? tvers : lng1,
-        // Desktop: laget-årets akseposisjon → «tidshopp»-linja i Spor (hover/valg).
-        lagetX:
-          erVannrett && v.lagetAar != null
-            ? skala.yearToY(v.lagetAar)
-            : undefined,
+        // Laget-årets akseposisjon → «tidshopp»-linja i Spor (desktop: hover/valg;
+        // mobil: valgt verk, vertikalt). Regnes for begge orienteringer.
+        lagetLng: v.lagetAar != null ? skala.yearToY(v.lagetAar) : undefined,
         innhentet: v.foregaarFra <= naa,
         visTittel: true,
         bilde: v.bilde,
@@ -354,7 +364,7 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
         if (arr) arr.push(s);
         else rader.set(b, [s]);
       }
-      const kandidater: typeof spor = [];
+      const kandidater: (typeof spor)[] = []; // én liste per rad, prioritert
       for (const medlemmer of rader.values()) {
         medlemmer.sort((a, b) => a.lane - b.lane);
         const foldet = medlemmer.filter((s) => s.lane >= maxKol);
@@ -370,24 +380,47 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
             n: foldet.length,
           });
         }
-        if (siste) kandidater.push(siste); // høyreste i raden = navne-kandidat
+        // Navne-kandidater: prioriter verket i raden med STØRST tidssprang
+        // (laget↔foregår) — etikettene som overlever declutter skal bære selve
+        // tesen. Kolliderer den beste, prøves nestemann (til slutt den høyreste).
+        if (beholdt.length) {
+          const sprang = (s: (typeof beholdt)[number]) =>
+            s.verk.lagetAar != null
+              ? Math.abs(s.verk.foregaarFra - s.verk.lagetAar)
+              : -1;
+          kandidater.push([...beholdt].sort((a, b) => sprang(b) - sprang(a)));
+        }
       }
 
-      // Navn vises bare der det IKKE kolliderer med et annet bilde (cross-lane-sjekk).
+      // Navn vises bare der det IKKE kolliderer med et annet bilde (cross-lane-
+      // sjekk). Per rad: første kandidat (høyest tidssprang) som får plass.
       const synligeBilder = spor.filter((s) => !s.skjult);
-      for (const k of kandidater) {
-        const navnW = Math.min(k.verk.tittel.length, 22) * 6.3;
-        const v0 = k.x + IMG_MOBIL / 2 + 6;
-        const v1 = v0 + navnW;
-        if (v1 > W - 6) continue; // ut over høyre kant
-        const koll = synligeBilder.some(
-          (o) =>
-            o !== k &&
-            o.x + IMG_MOBIL / 2 > v0 &&
-            o.x - IMG_MOBIL / 2 < v1 &&
-            Math.abs(o.lng0 - k.lng0) < IMG_MOBIL / 2 + 9,
-        );
-        if (!koll) k.visNavn = true;
+      for (const rad of kandidater) {
+        for (const k of rad) {
+          const navnW = Math.min(k.verk.tittel.length, 22) * 7.2; // matcher 12.5px-fonten i Spor
+          const v0 = k.x + IMG_MOBIL / 2 + 6;
+          const v1 = v0 + navnW;
+          if (v1 > W - 6) continue; // ut over høyre kant
+          const koll =
+            synligeBilder.some(
+              (o) =>
+                o !== k &&
+                o.x + IMG_MOBIL / 2 > v0 &&
+                o.x - IMG_MOBIL / 2 < v1 &&
+                Math.abs(o.lng0 - k.lng0) < IMG_MOBIL / 2 + 9,
+            ) ||
+            // …og «+N»-pillene er også hindre (de tegnes over etikettene)
+            pluss.some(
+              (p) =>
+                p.x + 18 > v0 &&
+                p.x - 18 < v1 &&
+                Math.abs(p.y - k.lng0) < IMG_MOBIL / 2 + 11,
+            );
+          if (!koll) {
+            k.visNavn = true;
+            break;
+          }
+        }
       }
     }
 
@@ -430,6 +463,15 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
   const synligeAnkere = useMemo(
     () => ankere.filter((a) => kat[a.type]),
     [ankere, kat],
+  );
+
+  // Epoker sortert for HUD-ens kontekstlinje (~20 stk → lineært søk per frame er gratis).
+  const epoker = useMemo(
+    () =>
+      ankere
+        .filter((a) => a.type === "epoke")
+        .sort((a, b) => a.fra - b.fra),
+    [ankere],
   );
 
   // "Sann avstand" (lineær) kollapser IKKE tomrom, så hele spennet (−80000→20000)
@@ -492,6 +534,46 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
     history.replaceState(null, "", url);
   }, [valgt, verk]);
 
+  // HUD-en (mobil) skrives rett i DOM — scroll skal aldri re-rendre SVG-treet.
+  const oppdaterHud = useCallback(
+    (sentrum: number) => {
+      const aarEl = hudAarRef.current;
+      const kontekstEl = hudKontekstRef.current;
+      if (!aarEl || !kontekstEl) return;
+      const rundet = Math.round(sentrum);
+      aarEl.textContent = fmtAar(rundet);
+      const epoke = epoker.find((e) => rundet >= e.fra && rundet <= e.til);
+      if (epoke) kontekstEl.textContent = epoke.tittel;
+      else {
+        const diff = rundet - naa;
+        kontekstEl.textContent =
+          diff === 0
+            ? "Now"
+            : diff > 0
+              ? `Now +${fmtAar(diff)} yrs`
+              : `Now −${fmtAar(-diff)} yrs`;
+      }
+      // Våkn ved scroll; dimmes etter 900 ms ro (CSS-transition tar resten).
+      const hud = hudRef.current;
+      if (hud) {
+        hud.removeAttribute("data-idle");
+        if (hudIdleRef.current != null) window.clearTimeout(hudIdleRef.current);
+        hudIdleRef.current = window.setTimeout(() => {
+          hud.setAttribute("data-idle", "true");
+        }, 900);
+      }
+    },
+    [epoker, naa],
+  );
+
+  // Startverdi + oppdatering ved layout-endring (zoom/filter/rotasjon) — scroll-
+  // eventet fyrer ikke nødvendigvis da, men sentrum-året kan ha fått ny kontekst.
+  useEffect(() => {
+    if (kompakt && startetRef.current) {
+      oppdaterHud(sentrumAarRef.current ?? naa);
+    }
+  }, [kompakt, layout, naa, oppdaterHud]);
+
   // Spor sentrum-året kontinuerlig så rotasjon/resize kan re-sentrere det (over).
   const påScroll = () => {
     const el = scrollRef.current;
@@ -500,6 +582,12 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
       lesScroll(el) + synsLangs(el) / 2 - OFFSET,
     );
     sentrumAarRef.current = sentrum;
+    if (kompakt) oppdaterHud(sentrum);
+    if (kompakt && visIntro) {
+      const pos = lesScroll(el);
+      if (introScroll0.current == null) introScroll0.current = pos;
+      else if (Math.abs(pos - introScroll0.current) > 120) lukkIntro();
+    }
     // FAB-pila: NÅ ligger mot framtida (ned/høyre) når sentrum er i fortida.
     const retning = sentrum <= naa ? 1 : -1;
     if (retning !== naaRetning) setNaaRetning(retning);
@@ -527,6 +615,7 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
   // pointermove/wheel fyrer (ProMotion = 120 Hz) → re-render følger skjermens takt.
   const planleggZoom = useCallback(
     (z: number, v: number) => {
+      avbrytZoomTween(); // live gest vinner alltid over en pågående tween
       venterZoom.current = { z, v };
       if (zoomRafRef.current == null) {
         zoomRafRef.current = requestAnimationFrame(() => {
@@ -630,6 +719,7 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
   const hoppTilNaa = () => {
     const el = scrollRef.current;
     if (!el) return;
+    tikk();
     const mål = OFFSET + layout.skala.yearToY(naa) - synsLangs(el) / 2;
     const glatt = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const opts: ScrollToOptions = { behavior: glatt ? "smooth" : "auto" };
@@ -637,12 +727,67 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
     else el.scrollTo({ top: mål, ...opts });
   };
 
+  // Diskret zoom («+N», ±-knappene) tweenes over ~260 ms (ease-out-cubic) via
+  // eksisterende zoomTil per frame — klyngen «blomstrer» opp i stedet for å
+  // hoppe. Live gester (pinch/wheel) forblir direkte og avbryter tweenen.
+  const zoomTweenRef = useRef<number | null>(null);
+  const avbrytZoomTween = useCallback(() => {
+    if (zoomTweenRef.current != null) {
+      cancelAnimationFrame(zoomTweenRef.current);
+      zoomTweenRef.current = null;
+    }
+  }, []);
+  const tweenZoom = (fra: number, til: number, steg: (z: number) => void) => {
+    avbrytZoomTween();
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      steg(til);
+      return;
+    }
+    const t0 = performance.now();
+    const DUR = 260;
+    const kjør = (t: number) => {
+      const p = Math.min(1, (t - t0) / DUR);
+      const e = 1 - (1 - p) ** 3;
+      steg(fra + (til - fra) * e);
+      zoomTweenRef.current = p < 1 ? requestAnimationFrame(kjør) : null;
+    };
+    zoomTweenRef.current = requestAnimationFrame(kjør);
+  };
+
+  // Velg et verk. På mobil: sørg for at både markøren og laget-året (leap-linjas
+  // andre ende) er synlige i ØVRE halvdel — kortet (peek) dekker nedre del.
+  const velg = (idx: number) => {
+    tikk();
+    setValgt(idx);
+    if (!kompakt) return;
+    const el = scrollRef.current;
+    const s = layout.spor.find((p) => p.idx === idx);
+    if (!el || !s || s.lagetLng == null) return;
+    const syn = synsLangs(el);
+    const vindu = syn * 0.5;
+    const topp = lesScroll(el);
+    const a = Math.min(s.lng0, s.lagetLng) + OFFSET;
+    const b = Math.max(s.lng0, s.lagetLng) + OFFSET;
+    const marker = s.lng0 + OFFSET;
+    if (a >= topp && b <= topp + vindu) return; // alt synlig allerede
+    // Sikt midtpunktet inn i øvre vindu, men la aldri markøren forlate det.
+    let mål = (a + b) / 2 - vindu / 2;
+    mål = Math.max(mål, marker - vindu + 28);
+    mål = Math.min(mål, marker - 28);
+    const glatt = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    el.scrollTo({ top: mål, behavior: glatt ? "smooth" : "auto" });
+  };
+
   // «+N» (mobil): zoom inn og sentrer båndets år, så de foldede verkene sprer seg.
   const spreUt = (aar: number) => {
     const el = scrollRef.current;
     if (!el) return;
-    ankerRef.current = { aar, v: synsLangs(el) / 2 };
-    setZoom((z) => Math.min(zoomMaks, +(z * 2.2).toFixed(3)));
+    tikk();
+    const til = Math.min(zoomMaks, +(zoom * 2.2).toFixed(3));
+    tweenZoom(zoom, til, (z) => {
+      ankerRef.current = { aar, v: synsLangs(el) / 2 };
+      setZoom(+z.toFixed(3));
+    });
   };
 
   // Piltaster flytter fokus til forrige/neste markør i tid (roving): ←/→ desktop, ↑/↓ mobil.
@@ -752,7 +897,7 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
               type="button"
               className="tm-zoom-btn"
               aria-label="Zoom out"
-              onClick={() => zoomTil(zoom / 1.4, midtLangs())}
+              onClick={() => tweenZoom(zoom, zoom / 1.4, (z) => zoomTil(z, midtLangs()))}
             >
               −
             </button>
@@ -771,7 +916,7 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
               type="button"
               className="tm-zoom-btn"
               aria-label="Zoom in"
-              onClick={() => zoomTil(zoom * 1.4, midtLangs())}
+              onClick={() => tweenZoom(zoom, zoom * 1.4, (z) => zoomTil(z, midtLangs()))}
             >
               +
             </button>
@@ -902,6 +1047,13 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
           der discovery-trafikken lander. Én setning, avvises én gang. */}
       {kompakt && visIntro && (
         <div className="tm-intro" role="note">
+          {/* NÅ-miniglyfen (samme motiv som ikonet) — stripa leses som
+              bildetekst til tidslinja, ikke som cookie-banner. */}
+          <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+            <line x1="8" y1="1" x2="8" y2="15" stroke="var(--paper)" strokeWidth="1.2" opacity="0.5" />
+            <line x1="1" y1="8" x2="15" y2="8" stroke="var(--accent)" strokeWidth="2.5" />
+            <polygon points="10,4 15,8 10,12" fill="var(--accent)" />
+          </svg>
           <span>
             Fiction placed by the year it&apos;s <em>set</em> in — not when it
             was made.
@@ -936,6 +1088,20 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
         onPointerCancel={pekerOpp}
         onKeyDown={onKeyDown}
       >
+        {/* SSR/første maling: W===0 på server → skjelettet ligger i HTML-en og
+            maler papir + akse + NÅ-linje umiddelbart, til målingen er klar. */}
+        {!klar && (
+          <div className="tm-skjelett" aria-hidden="true">
+            <div className="tm-skjelett-akse" />
+            <div className="tm-skjelett-tick" style={{ top: "18%" }} />
+            <div className="tm-skjelett-tick" style={{ top: "38%" }} />
+            <div className="tm-skjelett-tick" style={{ top: "62%" }} />
+            <div className="tm-skjelett-tick" style={{ top: "82%" }} />
+            <div className="tm-skjelett-naa">
+              <span>NOW</span>
+            </div>
+          </div>
+        )}
         {klar && (
           <svg
             width={svgW}
@@ -978,7 +1144,7 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
                     erValgt={idx === valgt}
                     tabbar={idx === tabbarIdx}
                     onFokus={() => setFokusIdx(idx)}
-                    onVelg={() => setValgt(idx)}
+                    onVelg={() => velg(idx)}
                   />
                 ))}
               {/* «+N» (mobil): foldede verk i en tett rad — trykk zoomer inn og sprer dem */}
@@ -998,9 +1164,9 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
                       }
                     }}
                   >
-                    {/* usynlig ≥24px treffområde (WCAG target size) */}
-                    <rect x={p.x - 16} y={p.y - 14} width={32} height={28} fill="transparent" />
-                    <rect x={p.x - 13} y={p.y - 9} width={26} height={18} rx={9} />
+                    {/* usynlig ≥28px treffområde (WCAG target size) */}
+                    <rect x={p.x - 18} y={p.y - 16} width={36} height={32} fill="transparent" />
+                    <rect x={p.x - 15} y={p.y - 11} width={30} height={22} rx={11} />
                     <text x={p.x} y={p.y + 4} textAnchor="middle">
                       +{p.n}
                     </text>
@@ -1015,6 +1181,8 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
           </p>
         )}
       </div>
+
+      <AarHud hudRef={hudRef} aarRef={hudAarRef} kontekstRef={hudKontekstRef} />
 
       <button
         type="button"

@@ -34,9 +34,10 @@ interface Props {
   visNavn?: boolean;
   /** Bilde-side i px på mobil. */
   bildeStr?: number;
-  /** Desktop: skjerm-x for lagetAar — tegner «tidshopp»-linja (laget → foregår)
-   *  ved hover/valg. Anakronismen blir synlig på selve lerretet. */
-  lagetX?: number;
+  /** Akse-posisjon for lagetAar — tegner «tidshopp»-linja (laget → foregår).
+   *  Desktop: hover/valg. Mobil: for valgt verk, vertikalt langs kolonnen.
+   *  Anakronismen blir synlig på selve lerretet. */
+  lagetLng?: number;
 }
 
 function Markor({
@@ -103,7 +104,7 @@ export default function Spor({
   bilde,
   visNavn = false,
   bildeStr = 30,
-  lagetX,
+  lagetLng,
 }: Props) {
   const spennLen = Math.hypot(x2 - x, y2 - y);
   const spenn = spennLen > 1;
@@ -160,10 +161,10 @@ export default function Spor({
 
       {/* «Tidshopp»-linja (desktop, hover/valg): laget-året → foregår-året.
           Anakronismen — produktets tittel-innsikt — tegnet der den hører hjemme. */}
-      {!kompakt && lagetX != null && verk.lagetAar != null && Math.abs(lagetX - x) > 12 && (
+      {!kompakt && lagetLng != null && verk.lagetAar != null && Math.abs(lagetLng - x) > 12 && (
         <g className="tm-leap" data-valgt={erValgt} pointerEvents="none">
           <line
-            x1={lagetX}
+            x1={lagetLng}
             y1={y}
             x2={x}
             y2={y}
@@ -171,13 +172,45 @@ export default function Spor({
             strokeWidth={1}
             strokeDasharray="2 4"
           />
-          <line x1={lagetX} y1={y - 4} x2={lagetX} y2={y + 4} stroke="var(--ink-soft)" strokeWidth={1.4} />
+          <line x1={lagetLng} y1={y - 4} x2={lagetLng} y2={y + 4} stroke="var(--ink-soft)" strokeWidth={1.4} />
           <text
-            x={lagetX < x ? lagetX - 5 : lagetX + 5}
+            x={lagetLng < x ? lagetLng - 5 : lagetLng + 5}
             y={y + 3}
-            textAnchor={lagetX < x ? "end" : "start"}
+            textAnchor={lagetLng < x ? "end" : "start"}
             fontSize={9}
             fontWeight={500}
+            fill="var(--ink-soft)"
+            stroke="var(--paper)"
+            strokeWidth={3}
+            paintOrder="stroke"
+          >
+            {`made ${fmtAar(verk.lagetAar)}`}
+          </text>
+        </g>
+      )}
+
+      {/* Mobil: samme innsikt, vertikalt langs verkets kolonne — KUN for valgt
+          verk (hover finnes ikke på touch). Linja «tegnes» fra markøren mot
+          laget-året via pathLength/dashoffset-animasjon i CSS. */}
+      {kompakt && erValgt && lagetLng != null && verk.lagetAar != null && Math.abs(lagetLng - y) > 16 && (
+        <g className="tm-leap-tegn" pointerEvents="none">
+          <line
+            x1={x}
+            y1={y}
+            x2={x}
+            y2={lagetLng}
+            stroke="var(--ink-soft)"
+            strokeWidth={1.2}
+            pathLength={100}
+            strokeDasharray={100}
+          />
+          <line x1={x - 5} y1={lagetLng} x2={x + 5} y2={lagetLng} stroke="var(--ink-soft)" strokeWidth={1.4} />
+          <text
+            x={tilHoyre ? x + 8 : x - 8}
+            y={lagetLng + 3}
+            textAnchor={tilHoyre ? "start" : "end"}
+            fontSize={10}
+            fontWeight={600}
             fill="var(--ink-soft)"
             stroke="var(--paper)"
             strokeWidth={3}
@@ -251,8 +284,8 @@ export default function Spor({
             x={tilHoyre ? x + s / 2 + 6 : x - s / 2 - 6}
             y={y + 4}
             textAnchor={tilHoyre ? "start" : "end"}
-            fontSize={11}
-            fontWeight={600}
+            fontSize={erValgt ? 14 : 12.5}
+            fontWeight={erValgt ? 700 : 650}
             fill="var(--ink)"
             stroke="var(--paper)"
             strokeWidth={3}

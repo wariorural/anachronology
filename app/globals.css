@@ -198,6 +198,32 @@ body {
   color: var(--paper);
 }
 
+/* Taktil kompresjon på trykk — kontrollene skal kjennes fysiske */
+.tm-fab,
+.tm-chip,
+.tm-controls button {
+  transition: transform 0.12s ease;
+}
+
+.tm-fab:active,
+.tm-chip:active,
+.tm-controls button:active {
+  transform: scale(0.94);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tm-fab,
+  .tm-chip,
+  .tm-controls button {
+    transition: none;
+  }
+  .tm-fab:active,
+  .tm-chip:active,
+  .tm-controls button:active {
+    transform: none;
+  }
+}
+
 /* Zoom-slider i samme register som resten: 2px rule-spor, kvadratisk oransje
    thumb. Rå OS-slider var det ene åpenbart ustylede elementet i masthead. */
 .tm-controls input[type="range"] {
@@ -308,12 +334,71 @@ body {
   text-align: center;
 }
 
+/* ---- Årstall-HUD (kun mobil): instrumentavlesning av året i sentrum ---- */
+.tm-hud {
+  display: none; /* slås på i mobil-blokken */
+  position: absolute;
+  top: 64px;
+  left: 10px;
+  z-index: 15;
+  flex-direction: column;
+  padding: 8px 12px 9px;
+  background: color-mix(in srgb, var(--paper) 88%, transparent);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  pointer-events: none; /* ren avlesning — aldri i veien for tap */
+  transition: opacity 0.3s ease;
+}
+
+.tm-hud[data-idle="true"] {
+  opacity: 0.55;
+}
+
+/* Intro-stripa ligger i samme hjørne — skyv HUD-en under den til den er avvist */
+.tm-app:has(.tm-intro) .tm-hud {
+  top: 124px;
+}
+
+.tm-hud-merke {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.tm-hud-aar {
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+
+.tm-hud-kontekst {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tm-hud {
+    transition: none;
+  }
+}
+
 /* Flytende «Hopp til NÅ» på mobil (erstatter knappen i toppbaren) */
 .tm-fab {
   display: none; /* kun mobil */
   position: absolute;
   right: 14px;
-  bottom: 16px;
+  bottom: calc(16px + env(safe-area-inset-bottom));
   z-index: 15;
   align-items: center;
   justify-content: center;
@@ -355,6 +440,14 @@ body {
 .tm-intro em {
   font-style: normal;
   color: #f4a583; /* lys oransje valør — leselig på blekk */
+}
+
+.tm-intro svg {
+  flex: 0 0 auto;
+}
+
+.tm-intro span {
+  flex: 1 1 auto;
 }
 
 .tm-intro button {
@@ -478,6 +571,115 @@ body {
   -webkit-overflow-scrolling: touch;
   position: relative;
   touch-action: pan-y;
+  /* Uten contain utløser scroll forbi endene pull-to-refresh/kjede-sprett —
+     midt i tidslinja leses det som at appen mister grepet. */
+  overscroll-behavior: contain;
+}
+
+/* Long-press på SVG-etiketter skal ikke starte tekstmarkering */
+.tm-scroll svg {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* ---- Skjelett før første måling: papir + akse + NÅ — aldri blank flash ---- */
+.tm-skjelett {
+  position: absolute;
+  inset: 0;
+  animation: tm-skjelett-puls 1.2s ease-in-out infinite alternate;
+}
+
+.tm-skjelett-akse {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 44px; /* = VENSTRE-gutteren i Tidslinje */
+  width: 1px;
+  background: var(--rule);
+}
+
+.tm-skjelett-tick {
+  position: absolute;
+  left: 32px;
+  width: 24px;
+  border-top: 1px dashed var(--rule);
+}
+
+.tm-skjelett-naa {
+  position: absolute;
+  top: 45%;
+  left: 0;
+  right: 0;
+  border-top: 2.5px solid var(--accent);
+}
+
+.tm-skjelett-naa span {
+  position: absolute;
+  top: 6px;
+  left: 52px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  color: var(--accent-text);
+}
+
+/* Desktop er horisontal — speil skjelettet før målingen har sagt sitt */
+@media (min-width: 431px) {
+  .tm-skjelett-akse {
+    top: auto;
+    left: 0;
+    right: 0;
+    bottom: 50px;
+    width: auto;
+    height: 1px;
+  }
+  .tm-skjelett-tick {
+    left: auto;
+    top: auto !important;
+    bottom: 42px;
+    width: 1px;
+    height: 16px;
+    border-top: 0;
+    border-left: 1px dashed var(--rule);
+  }
+  .tm-skjelett-tick:nth-child(2) { left: 18%; }
+  .tm-skjelett-tick:nth-child(3) { left: 38%; }
+  .tm-skjelett-tick:nth-child(4) { left: 62%; }
+  .tm-skjelett-tick:nth-child(5) { left: 82%; }
+  .tm-skjelett-naa {
+    top: 0;
+    bottom: 0;
+    left: 45%;
+    right: auto;
+    border-top: 0;
+    border-left: 2.5px solid var(--accent);
+  }
+  .tm-skjelett-naa span {
+    top: 12px;
+    left: 8px;
+  }
+}
+
+@keyframes tm-skjelett-puls {
+  from { opacity: 1; }
+  to { opacity: 0.55; }
+}
+
+/* Myk ankomst når det ekte innholdet tar over for skjelettet */
+.tm-scroll svg {
+  animation: tm-ankomst 0.15s ease-out;
+}
+
+@keyframes tm-ankomst {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tm-skjelett,
+  .tm-scroll svg {
+    animation: none;
+  }
 }
 
 /* Desktop: horisontal tidslinje → scroll langs X. */
@@ -525,10 +727,36 @@ body {
   opacity: 1;
 }
 
+/* Mobil-varianten av tidshopp-linja (valgt verk): linja «tegnes» fra markøren
+   mot laget-året (pathLength=100 + dashoffset), etiketten kommer etterpå. */
+.tm-leap-tegn line:first-child {
+  animation: tm-leap-tegning 0.4s ease-out;
+}
+
+.tm-leap-tegn line + line,
+.tm-leap-tegn text {
+  animation: tm-leap-etikett 0.55s ease-out;
+}
+
+@keyframes tm-leap-tegning {
+  from { stroke-dashoffset: 100; }
+  to { stroke-dashoffset: 0; }
+}
+
+@keyframes tm-leap-etikett {
+  0%, 60% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .tm-ring,
   .tm-leap {
     transition: none;
+  }
+  .tm-leap-tegn line:first-child,
+  .tm-leap-tegn line + line,
+  .tm-leap-tegn text {
+    animation: none;
   }
 }
 
@@ -570,6 +798,7 @@ body {
   max-width: 100vw;
   max-height: calc(100dvh - 48px);
   overflow-y: auto; /* korte skjermer (landskap): scroll i stedet for klipp */
+  overscroll-behavior: contain; /* arkets scroll skal ikke kjede til siden bak */
   padding: 0;
   border: 1px solid var(--ink);
   border-bottom: 0;
@@ -633,7 +862,54 @@ body {
   position: relative;
   max-width: 680px; /* arket fyller bredden; teksten holdes i lesbar kolonne */
   margin-inline: auto;
-  padding: 20px 22px 18px;
+  padding: 20px 22px calc(18px + env(safe-area-inset-bottom));
+}
+
+/* Gripe-sone: pill + romslig treffsone. Kun bunnark-varianter (<700px);
+   landskap-popupen og desktop-arket har ingen drag. */
+.tm-kort-gripe {
+  display: none;
+  padding: 8px 0 4px;
+  margin: -12px 0 -4px;
+  touch-action: none; /* drag herfra skal aldri tolkes som scroll */
+  cursor: grab;
+}
+
+.tm-kort-gripe::before {
+  content: "";
+  display: block;
+  width: 36px;
+  height: 4px;
+  margin: 0 auto;
+  border-radius: 999px;
+  background: var(--rule);
+}
+
+@media (max-width: 699px) {
+  .tm-kort-gripe {
+    display: block;
+  }
+}
+
+/* Snap-tilstander (kun mobil): peek = tittel + punchline, tidslinja bak synlig.
+   max-height-overgangen bruker samme kurve som inngangen. */
+@media (max-width: 430px) {
+  .tm-kort {
+    transition:
+      opacity 0.22s ease,
+      transform 0.22s cubic-bezier(0.32, 0.72, 0, 1),
+      max-height 0.3s cubic-bezier(0.32, 0.72, 0, 1),
+      overlay 0.22s ease allow-discrete,
+      display 0.22s ease allow-discrete;
+  }
+  .tm-kort[data-snap="peek"] {
+    max-height: 42dvh;
+    overflow: hidden; /* peek scroller ikke — drag hvor som helst flytter arket */
+    touch-action: none;
+  }
+  .tm-kort[data-snap="full"] {
+    max-height: calc(100dvh - 48px);
+  }
 }
 
 /* Arket fokuseres ved åpning (for å ta ringen av lukkeknappen) — ingen egen ring. */
@@ -732,7 +1008,7 @@ body {
 }
 .tm-plus text {
   fill: var(--paper);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.02em;
 }
@@ -820,7 +1096,7 @@ body {
   .tm-header {
     position: relative;
     z-index: 30;
-    padding: 9px 14px;
+    padding: calc(9px + env(safe-area-inset-top)) 14px 9px;
     gap: 0;
   }
 
@@ -830,17 +1106,30 @@ body {
     align-items: center;
     gap: 8px;
   }
+  /* To-linjes brand-stabel: tittel + én setning permanent innramming.
+     display:none på underteksten gjemte konseptet akkurat der discovery-
+     trafikken lander — én linje ekstra header er prisen verd. */
   .tm-brand {
     flex: 1 1 auto;
     min-width: 0;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1px;
   }
   .tm-brand h1 {
     font-size: 16px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    max-width: 100%;
   }
-  .tm-dek,
+  .tm-dek {
+    font-size: 10px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+  }
   .tm-count {
     display: none;
   }
@@ -882,6 +1171,10 @@ body {
     display: inline-flex;
   }
 
+  .tm-hud {
+    display: flex;
+  }
+
   /* Roterte inline-titler skjules — tidslinja blir rent formspråk; valgt vises
      horisontalt (rendret i Spor), resten hentes via tap → kort. */
   .tm-tittel {
@@ -900,9 +1193,9 @@ body {
   .tm-header {
     position: relative; /* anker for skuff-overlay */
     z-index: 30;
-    flex: 0 0 56px;
-    width: 56px;
-    padding: 10px 6px;
+    flex: 0 0 calc(56px + env(safe-area-inset-left));
+    width: calc(56px + env(safe-area-inset-left));
+    padding: 10px 6px 10px calc(6px + env(safe-area-inset-left));
     gap: 0;
     border-bottom: 0;
     border-right: 1px solid var(--ink);
@@ -989,5 +1282,14 @@ body {
     .tm-kort[open] {
       transform: translateY(10px) scale(0.98);
     }
+  }
+  /* Popupen er ikke et ark — ingen gripe, ingen peek-klipp */
+  .tm-kort-gripe {
+    display: none;
+  }
+  .tm-kort[data-snap="peek"] {
+    max-height: calc(100dvh - 28px);
+    overflow-y: auto;
+    touch-action: auto;
   }
 }
