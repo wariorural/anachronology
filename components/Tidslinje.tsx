@@ -55,8 +55,8 @@ const LANE0_Y = TOPP_CROSS + MARKOR_KLARING; // horisontal: der markør-banen st
 
 // Mobil: markør = liten Wikipedia-thumbnail. Bilder er brede → en y-rad rommer bare
 // noen få før de overlapper; resten foldes til ett «+N»-merke (trykk = zoom inn).
-const IMG_MOBIL = 30; // bilde-side (px)
-const ROW_BUCKET = 32; // langs-bøtte: verk i samme bøtte = «samme rad»
+const IMG_MOBIL = 38; // bilde-side (px)
+const ROW_BUCKET = 40; // langs-bøtte: verk i samme bøtte = «samme rad»
 
 const ZOOM_MIN = 0.6;
 const ZOOM_MAX = 12;
@@ -271,7 +271,8 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
         y1: skala.yearToY(v.foregaarTil),
       })),
       // Større radius på mobil → bildene får egen bane og overlapper ikke.
-      { radius: erKompakt ? 16 : MARKOR_R + 2, laneBredde: LANE_MAX, maxLanes: 40 },
+      // Avledet av bildestørrelsen så de to aldri drifter fra hverandre.
+      { radius: erKompakt ? IMG_MOBIL / 2 + 5 : MARKOR_R + 2, laneBredde: LANE_MAX, maxLanes: 40 },
     );
 
     let maxLane = 0;
@@ -360,7 +361,7 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
         if (arr) arr.push(s);
         else rader.set(b, [s]);
       }
-      const kandidater: typeof spor = [];
+      const kandidater: (typeof spor)[] = []; // én liste per rad, prioritert
       for (const medlemmer of rader.values()) {
         medlemmer.sort((a, b) => a.lane - b.lane);
         const foldet = medlemmer.filter((s) => s.lane >= maxKol);
@@ -376,24 +377,47 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
             n: foldet.length,
           });
         }
-        if (siste) kandidater.push(siste); // høyreste i raden = navne-kandidat
+        // Navne-kandidater: prioriter verket i raden med STØRST tidssprang
+        // (laget↔foregår) — etikettene som overlever declutter skal bære selve
+        // tesen. Kolliderer den beste, prøves nestemann (til slutt den høyreste).
+        if (beholdt.length) {
+          const sprang = (s: (typeof beholdt)[number]) =>
+            s.verk.lagetAar != null
+              ? Math.abs(s.verk.foregaarFra - s.verk.lagetAar)
+              : -1;
+          kandidater.push([...beholdt].sort((a, b) => sprang(b) - sprang(a)));
+        }
       }
 
-      // Navn vises bare der det IKKE kolliderer med et annet bilde (cross-lane-sjekk).
+      // Navn vises bare der det IKKE kolliderer med et annet bilde (cross-lane-
+      // sjekk). Per rad: første kandidat (høyest tidssprang) som får plass.
       const synligeBilder = spor.filter((s) => !s.skjult);
-      for (const k of kandidater) {
-        const navnW = Math.min(k.verk.tittel.length, 22) * 6.3;
-        const v0 = k.x + IMG_MOBIL / 2 + 6;
-        const v1 = v0 + navnW;
-        if (v1 > W - 6) continue; // ut over høyre kant
-        const koll = synligeBilder.some(
-          (o) =>
-            o !== k &&
-            o.x + IMG_MOBIL / 2 > v0 &&
-            o.x - IMG_MOBIL / 2 < v1 &&
-            Math.abs(o.lng0 - k.lng0) < IMG_MOBIL / 2 + 9,
-        );
-        if (!koll) k.visNavn = true;
+      for (const rad of kandidater) {
+        for (const k of rad) {
+          const navnW = Math.min(k.verk.tittel.length, 22) * 7.2; // matcher 12.5px-fonten i Spor
+          const v0 = k.x + IMG_MOBIL / 2 + 6;
+          const v1 = v0 + navnW;
+          if (v1 > W - 6) continue; // ut over høyre kant
+          const koll =
+            synligeBilder.some(
+              (o) =>
+                o !== k &&
+                o.x + IMG_MOBIL / 2 > v0 &&
+                o.x - IMG_MOBIL / 2 < v1 &&
+                Math.abs(o.lng0 - k.lng0) < IMG_MOBIL / 2 + 9,
+            ) ||
+            // …og «+N»-pillene er også hindre (de tegnes over etikettene)
+            pluss.some(
+              (p) =>
+                p.x + 18 > v0 &&
+                p.x - 18 < v1 &&
+                Math.abs(p.y - k.lng0) < IMG_MOBIL / 2 + 11,
+            );
+          if (!koll) {
+            k.visNavn = true;
+            break;
+          }
+        }
       }
     }
 
@@ -1094,9 +1118,9 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
                       }
                     }}
                   >
-                    {/* usynlig ≥24px treffområde (WCAG target size) */}
-                    <rect x={p.x - 16} y={p.y - 14} width={32} height={28} fill="transparent" />
-                    <rect x={p.x - 13} y={p.y - 9} width={26} height={18} rx={9} />
+                    {/* usynlig ≥28px treffområde (WCAG target size) */}
+                    <rect x={p.x - 18} y={p.y - 16} width={36} height={32} fill="transparent" />
+                    <rect x={p.x - 15} y={p.y - 11} width={30} height={22} rx={11} />
                     <text x={p.x} y={p.y + 4} textAnchor="middle">
                       +{p.n}
                     </text>

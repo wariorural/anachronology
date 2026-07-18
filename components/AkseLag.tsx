@@ -255,7 +255,7 @@ function AkseLag({ skala, ankere, venstreX, W, H, naa, toppCross = 108, bunnCros
             <text
               x={senterTvers}
               y={midt + 3}
-              fontSize={10}
+              fontSize={11}
               letterSpacing=".08em"
               fill="var(--bg-etikett)"
               stroke="var(--paper)"
@@ -304,7 +304,7 @@ function AkseLag({ skala, ankere, venstreX, W, H, naa, toppCross = 108, bunnCros
               y={p}
               textAnchor="end"
               transform={`rotate(-45 ${venstreX - 6} ${p})`}
-              fontSize={11}
+              fontSize={12}
               fontWeight={600}
               letterSpacing=".02em"
               fill="var(--ink-soft)"

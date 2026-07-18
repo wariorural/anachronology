@@ -1000,7 +1000,7 @@ body {
 }
 .tm-plus text {
   fill: var(--paper);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.02em;
 }

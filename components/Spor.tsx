@@ -284,8 +284,8 @@ export default function Spor({
             x={tilHoyre ? x + s / 2 + 6 : x - s / 2 - 6}
             y={y + 4}
             textAnchor={tilHoyre ? "start" : "end"}
-            fontSize={11}
-            fontWeight={600}
+            fontSize={erValgt ? 14 : 12.5}
+            fontWeight={erValgt ? 700 : 650}
             fill="var(--ink)"
             stroke="var(--paper)"
             strokeWidth={3}
