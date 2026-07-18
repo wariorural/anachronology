@@ -324,11 +324,9 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
         y: erVannrett ? tvers : lng0,
         x2: erVannrett ? lng1 : tvers,
         y2: erVannrett ? tvers : lng1,
-        // Desktop: laget-årets akseposisjon → «tidshopp»-linja i Spor (hover/valg).
-        lagetX:
-          erVannrett && v.lagetAar != null
-            ? skala.yearToY(v.lagetAar)
-            : undefined,
+        // Laget-årets akseposisjon → «tidshopp»-linja i Spor (desktop: hover/valg;
+        // mobil: valgt verk, vertikalt). Regnes for begge orienteringer.
+        lagetLng: v.lagetAar != null ? skala.yearToY(v.lagetAar) : undefined,
         innhentet: v.foregaarFra <= naa,
         visTittel: true,
         bilde: v.bilde,
@@ -696,6 +694,30 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
     else el.scrollTo({ top: mål, ...opts });
   };
 
+  // Velg et verk. På mobil: sørg for at både markøren og laget-året (leap-linjas
+  // andre ende) er synlige i ØVRE halvdel — kortet (peek) dekker nedre del.
+  const velg = (idx: number) => {
+    tikk();
+    setValgt(idx);
+    if (!kompakt) return;
+    const el = scrollRef.current;
+    const s = layout.spor.find((p) => p.idx === idx);
+    if (!el || !s || s.lagetLng == null) return;
+    const syn = synsLangs(el);
+    const vindu = syn * 0.5;
+    const topp = lesScroll(el);
+    const a = Math.min(s.lng0, s.lagetLng) + OFFSET;
+    const b = Math.max(s.lng0, s.lagetLng) + OFFSET;
+    const marker = s.lng0 + OFFSET;
+    if (a >= topp && b <= topp + vindu) return; // alt synlig allerede
+    // Sikt midtpunktet inn i øvre vindu, men la aldri markøren forlate det.
+    let mål = (a + b) / 2 - vindu / 2;
+    mål = Math.max(mål, marker - vindu + 28);
+    mål = Math.min(mål, marker - 28);
+    const glatt = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    el.scrollTo({ top: mål, behavior: glatt ? "smooth" : "auto" });
+  };
+
   // «+N» (mobil): zoom inn og sentrer båndets år, så de foldede verkene sprer seg.
   const spreUt = (aar: number) => {
     const el = scrollRef.current;
@@ -1052,10 +1074,7 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
                     erValgt={idx === valgt}
                     tabbar={idx === tabbarIdx}
                     onFokus={() => setFokusIdx(idx)}
-                    onVelg={() => {
-                      tikk();
-                      setValgt(idx);
-                    }}
+                    onVelg={() => velg(idx)}
                   />
                 ))}
               {/* «+N» (mobil): foldede verk i en tett rad — trykk zoomer inn og sprer dem */}

@@ -719,10 +719,36 @@ body {
   opacity: 1;
 }
 
+/* Mobil-varianten av tidshopp-linja (valgt verk): linja «tegnes» fra markøren
+   mot laget-året (pathLength=100 + dashoffset), etiketten kommer etterpå. */
+.tm-leap-tegn line:first-child {
+  animation: tm-leap-tegning 0.4s ease-out;
+}
+
+.tm-leap-tegn line + line,
+.tm-leap-tegn text {
+  animation: tm-leap-etikett 0.55s ease-out;
+}
+
+@keyframes tm-leap-tegning {
+  from { stroke-dashoffset: 100; }
+  to { stroke-dashoffset: 0; }
+}
+
+@keyframes tm-leap-etikett {
+  0%, 60% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .tm-ring,
   .tm-leap {
     transition: none;
+  }
+  .tm-leap-tegn line:first-child,
+  .tm-leap-tegn line + line,
+  .tm-leap-tegn text {
+    animation: none;
   }
 }
 
