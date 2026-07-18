@@ -23,10 +23,12 @@ interface Props {
   vannrett?: boolean;
   /** Gjør ankrene trykkbare: tap på epoke/person/hendelse/oppfinnelse åpner kortet. */
   onVelgAnker?: (a: Anker) => void;
-  /** "bakgrunn" (default) = hele stratumet. "treff" = KUN usynlige treff-flater
-   *  over epoke-etikettene — rendres ETTER verkene så etikett-tap vinner over
-   *  verkenes 44px-treffsirkler i tette strøk. Samme props → samme geometri. */
-  lag?: "bakgrunn" | "treff";
+  /** Hvilket dybdelag som skal rendres (Papirrelieffet splitter strata i egne
+   *  svg-er — samme props → samme geometri, subsettet velges her):
+   *  "bakgrunn" = alt (legacy/flat), "grunn" = grid/gap/år/ticks/framtidssone,
+   *  "epoker" = bånd, "personer" = livsbånd, "naa" = NÅ-hodet,
+   *  "treff" = usynlige treff-flater over epoke-etikettene (over verkene). */
+  lag?: "bakgrunn" | "grunn" | "epoker" | "personer" | "naa" | "treff";
 }
 
 const TYPE_NAVN: Record<Anker["type"], string> = {
@@ -474,17 +476,32 @@ function AkseLag({ skala, ankere, venstreX, W, H, naa, toppCross = 108, bunnCros
     return <g aria-hidden="true">{etikettTreff}</g>;
   }
 
-  return (
-    <g>
+  // Grunn-arket: alt som leses som TRYKK på selve papiret (grid, gap, år,
+  // framtidssone, retning, hendelses-/oppfinnelses-ticks m/etiketter).
+  const grunn = (
+    <>
       <rect {...framtid} fill="var(--accent)" fillOpacity={0.03} />
-      {/* Rent navigasjonelt (retning, årstall, gap) — støy i skjermleser-strømmen;
-          sr-sammendraget i Tidslinje bærer samme informasjon som tekst. */}
       <g aria-hidden="true">{orientering}</g>
-      {baand}
-      {personBaand}
       <g aria-hidden="true">{linjer}</g>
       {hendelser}
       {oppfinnelser}
+    </>
+  );
+
+  if (lag === "grunn") return <g>{grunn}</g>;
+  if (lag === "epoker") return <g>{baand}</g>;
+  if (lag === "personer") return <g>{personBaand}</g>;
+
+  // Gjenstår: "naa" (kun NÅ-blokka) og "bakgrunn" (legacy: alt i ett).
+  return (
+    <g>
+      {lag === "bakgrunn" && (
+        <>
+          {grunn}
+          {baand}
+          {personBaand}
+        </>
+      )}
       {/* NÅ — den ene fete tverrlinja, kant-til-kant (ref: kalenderplakaten).
           Flankert av tesen i klartekst: fylt/hul-koden forklares VED linja,
           ikke bare i en fjern legende. */}

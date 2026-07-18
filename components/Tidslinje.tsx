@@ -216,6 +216,12 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
   const sentrumAarRef = useRef<number | null>(null);
   // Siste målte container-mål → skiller ekte resize fra no-op (unngår stale anker).
   const dimRef = useRef({ w: 0, h: 0 });
+  // Papirrelieffet: scene + dybdelag (imperative transforms i fase C).
+  const sceneRef = useRef<HTMLDivElement>(null);
+  const lagRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const settLagRef = (navn: string) => (el: HTMLDivElement | null) => {
+    lagRefs.current[navn] = el;
+  };
   // Årstall-HUD (mobil): oppdateres imperativt fra påScroll — se AarHud.tsx.
   const hudRef = useRef<HTMLDivElement>(null);
   const hudAarRef = useRef<HTMLSpanElement>(null);
@@ -916,6 +922,21 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
   const svgW = vannrett ? layout.langsTotal : W;
   const svgH = vannrett ? H : layout.langsTotal;
   const wrap = vannrett ? `translate(${STARTX}, 0)` : `translate(0, ${TOPP})`;
+
+  // Delte props for dybdelagene (Papirrelieffet) — samme geometri per lag.
+  const akseProps = {
+    skala: layout.skala,
+    ankere: synligeAnkere,
+    venstreX: VENSTRE,
+    W,
+    H,
+    naa,
+    toppCross,
+    bunnCross,
+    kompakt,
+    vannrett,
+    onVelgAnker: velgAnker,
+  };
   const klar = W > 0 && (!vannrett || H > 0);
 
   return (
@@ -1173,36 +1194,56 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
           </div>
         )}
         {klar && (
-          <svg
-            width={svgW}
-            height={svgH}
-            viewBox={`0 0 ${svgW} ${svgH}`}
+          <div
+            className="tm-scene"
+            ref={sceneRef}
+            style={{ width: svgW, height: svgH }}
             role="group"
             aria-label="Timeline: fiction placed by the year it's set in, against real history and a NOW line."
           >
-            {/* Papirrelieffet: felles myk pin-skygge — 175 rene gradient-fills,
-                ingen filtre. Refereres fra Spor via url(#tm-pinskygge). */}
-            <defs>
-              <radialGradient id="tm-pinskygge">
-                <stop offset="0" stopColor="var(--skygge)" />
-                <stop offset="0.7" stopColor="var(--skygge-svak)" />
-                <stop offset="1" stopColor="var(--skygge)" stopOpacity="0" />
-              </radialGradient>
-            </defs>
-            <g transform={wrap}>
-              <AkseLag
-                skala={layout.skala}
-                ankere={synligeAnkere}
-                venstreX={VENSTRE}
-                W={W}
-                H={H}
-                naa={naa}
-                toppCross={toppCross}
-                bunnCross={bunnCross}
-                kompakt={kompakt}
-                vannrett={vannrett}
-                onVelgAnker={velgAnker}
-              />
+            {/* Papirrelieffet: strataene bor i hver sin svg (CSS-3D virker ikke
+                INNE i en svg) — DOM-orden = dagens malingsorden, NÅ løftes
+                visuelt via z-index i relieff. Alle deler samme skala fra samme
+                commit → registrering under zoom/elastikk er automatisk. */}
+            <div className="tm-lag" data-lag="grunn" ref={settLagRef("grunn")}>
+              <svg width={svgW} height={svgH} viewBox={`0 0 ${svgW} ${svgH}`}>
+                <g transform={wrap}>
+                  <AkseLag {...akseProps} lag="grunn" />
+                </g>
+              </svg>
+            </div>
+            <div className="tm-lag" data-lag="epoker" ref={settLagRef("epoker")}>
+              <svg width={svgW} height={svgH} viewBox={`0 0 ${svgW} ${svgH}`}>
+                <g transform={wrap}>
+                  <AkseLag {...akseProps} lag="epoker" />
+                </g>
+              </svg>
+            </div>
+            <div className="tm-lag" data-lag="personer" ref={settLagRef("personer")}>
+              <svg width={svgW} height={svgH} viewBox={`0 0 ${svgW} ${svgH}`}>
+                <g transform={wrap}>
+                  <AkseLag {...akseProps} lag="personer" />
+                </g>
+              </svg>
+            </div>
+            <div className="tm-lag" data-lag="naa" ref={settLagRef("naa")} aria-hidden="true">
+              <svg width={svgW} height={svgH} viewBox={`0 0 ${svgW} ${svgH}`}>
+                <g transform={wrap}>
+                  <AkseLag {...akseProps} lag="naa" />
+                </g>
+              </svg>
+            </div>
+            <div className="tm-lag" data-lag="verk" ref={settLagRef("verk")}>
+              <svg width={svgW} height={svgH} viewBox={`0 0 ${svgW} ${svgH}`}>
+                {/* Felles myk pin-skygge — 175 rene gradient-fills, ingen filtre. */}
+                <defs>
+                  <radialGradient id="tm-pinskygge">
+                    <stop offset="0" stopColor="var(--skygge)" />
+                    <stop offset="0.7" stopColor="var(--skygge-svak)" />
+                    <stop offset="1" stopColor="var(--skygge)" stopOpacity="0" />
+                  </radialGradient>
+                </defs>
+                <g transform={wrap}>
               {/* Valgt spor rendres SIST → ring + tittel havner øverst. */}
               {(valgt == null
                 ? layout.spor
@@ -1255,22 +1296,11 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
               {/* Epoke-etikettenes treff-flater OVER verkene: i tette strøk dekker
                   verkenes 44px-treffsirkler båndene — et tap på selve etiketten
                   skal likevel alltid åpne epoken. */}
-              <AkseLag
-                skala={layout.skala}
-                ankere={synligeAnkere}
-                venstreX={VENSTRE}
-                W={W}
-                H={H}
-                naa={naa}
-                toppCross={toppCross}
-                bunnCross={bunnCross}
-                kompakt={kompakt}
-                vannrett={vannrett}
-                onVelgAnker={velgAnker}
-                lag="treff"
-              />
-            </g>
-          </svg>
+              <AkseLag {...akseProps} lag="treff" />
+                </g>
+              </svg>
+            </div>
+          </div>
         )}
         {W > 0 && layout.spor.length === 0 && (
           <p className="tm-tom" role="status">

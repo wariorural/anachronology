@@ -1023,6 +1023,30 @@ body {
   display: none;
 }
 
+/* Scenen: definerer scroll-extent; dybdelagene stables absolutt oppå.
+   Perspektiv/tilt settes IMPERATIVT på .tm-scene i relieff (fase C) —
+   .tm-scroll forblir utransformert (scrollbars, pinch-matte, fokus). */
+.tm-scene {
+  position: relative;
+}
+
+.tm-lag {
+  position: absolute;
+  inset: 0;
+  /* Lagene skal ikke sluke pekere — hver interaktiv node melder seg på selv */
+  pointer-events: none;
+}
+
+.tm-lag :is(.spor, .tm-anker-knapp, .tm-plus) {
+  pointer-events: auto;
+}
+
+/* Relieff: NÅ-bladet står ØVERST (skjærer gjennom arket); flat mode = DOM-orden
+   = dagens malingsorden (NÅ under verkene) — pikselparitet uten egen kodevei. */
+[data-relieff="true"] .tm-lag[data-lag="naa"] {
+  z-index: 5;
+}
+
 .tm-relieff-toggle {
   width: auto !important;
   height: var(--control-h);
