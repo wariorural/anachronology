@@ -442,6 +442,14 @@ body {
   color: #f4a583; /* lys oransje valør — leselig på blekk */
 }
 
+.tm-intro svg {
+  flex: 0 0 auto;
+}
+
+.tm-intro span {
+  flex: 1 1 auto;
+}
+
 .tm-intro button {
   flex: 0 0 auto;
   width: 32px;
@@ -1098,17 +1106,30 @@ body {
     align-items: center;
     gap: 8px;
   }
+  /* To-linjes brand-stabel: tittel + én setning permanent innramming.
+     display:none på underteksten gjemte konseptet akkurat der discovery-
+     trafikken lander — én linje ekstra header er prisen verd. */
   .tm-brand {
     flex: 1 1 auto;
     min-width: 0;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1px;
   }
   .tm-brand h1 {
     font-size: 16px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    max-width: 100%;
   }
-  .tm-dek,
+  .tm-dek {
+    font-size: 10px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+  }
   .tm-count {
     display: none;
   }

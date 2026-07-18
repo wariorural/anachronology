@@ -136,6 +136,9 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
       /* privat modus e.l. — stripa kommer bare igjen neste besøk */
     }
   };
+  // Avvisning skal FORTJENES, ikke kreves: første reelle scroll (>120px) betyr
+  // «jeg er i gang» — da glir stripa vekk av seg selv. ×-knappen består.
+  const introScroll0 = useRef<number | null>(null);
   // Filtre: hvilke medier vises, og om virkeligheten (ankrene) vises. Aksen
   // bygges på nytt fra de synlige verkene, så filtrering omformer tidslinja.
   const [medier, setMedier] = useState<Record<Medium, boolean>>({
@@ -580,6 +583,11 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
     );
     sentrumAarRef.current = sentrum;
     if (kompakt) oppdaterHud(sentrum);
+    if (kompakt && visIntro) {
+      const pos = lesScroll(el);
+      if (introScroll0.current == null) introScroll0.current = pos;
+      else if (Math.abs(pos - introScroll0.current) > 120) lukkIntro();
+    }
     // FAB-pila: NÅ ligger mot framtida (ned/høyre) når sentrum er i fortida.
     const retning = sentrum <= naa ? 1 : -1;
     if (retning !== naaRetning) setNaaRetning(retning);
@@ -1039,6 +1047,13 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
           der discovery-trafikken lander. Én setning, avvises én gang. */}
       {kompakt && visIntro && (
         <div className="tm-intro" role="note">
+          {/* NÅ-miniglyfen (samme motiv som ikonet) — stripa leses som
+              bildetekst til tidslinja, ikke som cookie-banner. */}
+          <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+            <line x1="8" y1="1" x2="8" y2="15" stroke="var(--paper)" strokeWidth="1.2" opacity="0.5" />
+            <line x1="1" y1="8" x2="15" y2="8" stroke="var(--accent)" strokeWidth="2.5" />
+            <polygon points="10,4 15,8 10,12" fill="var(--accent)" />
+          </svg>
           <span>
             Fiction placed by the year it&apos;s <em>set</em> in — not when it
             was made.
