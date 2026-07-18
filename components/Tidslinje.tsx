@@ -8,6 +8,8 @@ import { tikk } from "@/lib/haptikk";
 import AkseLag from "./AkseLag";
 import Spor from "./Spor";
 import Kort from "./Kort";
+import AarHud from "./AarHud";
+import { fmtAar } from "@/lib/format";
 
 interface Props {
   verk: Verk[];
@@ -175,6 +177,11 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
   const sentrumAarRef = useRef<number | null>(null);
   // Siste målte container-mål → skiller ekte resize fra no-op (unngår stale anker).
   const dimRef = useRef({ w: 0, h: 0 });
+  // Årstall-HUD (mobil): oppdateres imperativt fra påScroll — se AarHud.tsx.
+  const hudRef = useRef<HTMLDivElement>(null);
+  const hudAarRef = useRef<HTMLSpanElement>(null);
+  const hudKontekstRef = useRef<HTMLSpanElement>(null);
+  const hudIdleRef = useRef<number | null>(null);
 
   // Mål container-størrelsen klientside (holdes klientside for å unngå hydration-sprik).
   useLayoutEffect(() => {
@@ -433,6 +440,15 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
     [ankere, kat],
   );
 
+  // Epoker sortert for HUD-ens kontekstlinje (~20 stk → lineært søk per frame er gratis).
+  const epoker = useMemo(
+    () =>
+      ankere
+        .filter((a) => a.type === "epoke")
+        .sort((a, b) => a.fra - b.fra),
+    [ankere],
+  );
+
   // "Sann avstand" (lineær) kollapser IKKE tomrom, så hele spennet (−80000→20000)
   // blir fysisk lerret. Ticks per segment er kappet i AkseLag, så taket her handler
   // om total px-lengde (scroll-ytelse/presisjon) — budsjettet gir levende zoom i
@@ -493,6 +509,46 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
     history.replaceState(null, "", url);
   }, [valgt, verk]);
 
+  // HUD-en (mobil) skrives rett i DOM — scroll skal aldri re-rendre SVG-treet.
+  const oppdaterHud = useCallback(
+    (sentrum: number) => {
+      const aarEl = hudAarRef.current;
+      const kontekstEl = hudKontekstRef.current;
+      if (!aarEl || !kontekstEl) return;
+      const rundet = Math.round(sentrum);
+      aarEl.textContent = fmtAar(rundet);
+      const epoke = epoker.find((e) => rundet >= e.fra && rundet <= e.til);
+      if (epoke) kontekstEl.textContent = epoke.tittel;
+      else {
+        const diff = rundet - naa;
+        kontekstEl.textContent =
+          diff === 0
+            ? "Now"
+            : diff > 0
+              ? `Now +${fmtAar(diff)} yrs`
+              : `Now −${fmtAar(-diff)} yrs`;
+      }
+      // Våkn ved scroll; dimmes etter 900 ms ro (CSS-transition tar resten).
+      const hud = hudRef.current;
+      if (hud) {
+        hud.removeAttribute("data-idle");
+        if (hudIdleRef.current != null) window.clearTimeout(hudIdleRef.current);
+        hudIdleRef.current = window.setTimeout(() => {
+          hud.setAttribute("data-idle", "true");
+        }, 900);
+      }
+    },
+    [epoker, naa],
+  );
+
+  // Startverdi + oppdatering ved layout-endring (zoom/filter/rotasjon) — scroll-
+  // eventet fyrer ikke nødvendigvis da, men sentrum-året kan ha fått ny kontekst.
+  useEffect(() => {
+    if (kompakt && startetRef.current) {
+      oppdaterHud(sentrumAarRef.current ?? naa);
+    }
+  }, [kompakt, layout, naa, oppdaterHud]);
+
   // Spor sentrum-året kontinuerlig så rotasjon/resize kan re-sentrere det (over).
   const påScroll = () => {
     const el = scrollRef.current;
@@ -501,6 +557,7 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
       lesScroll(el) + synsLangs(el) / 2 - OFFSET,
     );
     sentrumAarRef.current = sentrum;
+    if (kompakt) oppdaterHud(sentrum);
     // FAB-pila: NÅ ligger mot framtida (ned/høyre) når sentrum er i fortida.
     const retning = sentrum <= naa ? 1 : -1;
     if (retning !== naaRetning) setNaaRetning(retning);
@@ -1035,6 +1092,8 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
           </p>
         )}
       </div>
+
+      <AarHud hudRef={hudRef} aarRef={hudAarRef} kontekstRef={hudKontekstRef} />
 
       <button
         type="button"

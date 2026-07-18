@@ -334,6 +334,65 @@ body {
   text-align: center;
 }
 
+/* ---- Årstall-HUD (kun mobil): instrumentavlesning av året i sentrum ---- */
+.tm-hud {
+  display: none; /* slås på i mobil-blokken */
+  position: absolute;
+  top: 64px;
+  left: 10px;
+  z-index: 15;
+  flex-direction: column;
+  padding: 8px 12px 9px;
+  background: color-mix(in srgb, var(--paper) 88%, transparent);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  pointer-events: none; /* ren avlesning — aldri i veien for tap */
+  transition: opacity 0.3s ease;
+}
+
+.tm-hud[data-idle="true"] {
+  opacity: 0.55;
+}
+
+/* Intro-stripa ligger i samme hjørne — skyv HUD-en under den til den er avvist */
+.tm-app:has(.tm-intro) .tm-hud {
+  top: 124px;
+}
+
+.tm-hud-merke {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.tm-hud-aar {
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+
+.tm-hud-kontekst {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tm-hud {
+    transition: none;
+  }
+}
+
 /* Flytende «Hopp til NÅ» på mobil (erstatter knappen i toppbaren) */
 .tm-fab {
   display: none; /* kun mobil */
@@ -1016,6 +1075,10 @@ body {
 
   .tm-fab {
     display: inline-flex;
+  }
+
+  .tm-hud {
+    display: flex;
   }
 
   /* Roterte inline-titler skjules — tidslinja blir rent formspråk; valgt vises
