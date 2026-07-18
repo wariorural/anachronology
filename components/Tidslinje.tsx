@@ -4,7 +4,8 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import type { Verk, Anker, Medium } from "@/lib/typer";
 import { lagSkala } from "@/lib/skala";
 import { dodge } from "@/lib/dodge";
-import { tikk } from "@/lib/haptikk";
+import { tikk, dobbelTikk } from "@/lib/haptikk";
+import { LAG_Z, lagOffset, tiltVinkel, fjaerSteg, iRo, hastighet } from "@/lib/relieff";
 import AkseLag from "./AkseLag";
 import Spor from "./Spor";
 import Kort from "./Kort";
@@ -122,6 +123,39 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
   }, []);
   // Mobil-FAB: peker mot NÅ relativt til viewport-sentrum (↑/↓), ikke en løgn.
   const [naaRetning, setNaaRetning] = useState<1 | -1>(1);
+  // Papirrelieffet: fysisk dybde (skygger/lag/parallakse). Flat mode = dagens
+  // utgave. Initial: på, MED MINDRE reduced motion; brukervalg persisteres og
+  // reduced motion vinner alltid live.
+  const [relieff, setRelieff] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const lagret = (() => {
+      try {
+        return localStorage.getItem("tm-relieff");
+      } catch {
+        return null;
+      }
+    })();
+    setRelieff(mq.matches ? false : lagret != null ? lagret === "1" : true);
+    const paaEndring = () => {
+      if (mq.matches) setRelieff(false);
+    };
+    mq.addEventListener("change", paaEndring);
+    return () => mq.removeEventListener("change", paaEndring);
+  }, []);
+  const byttRelieff = () => {
+    tikk();
+    setRelieff((r) => {
+      const ny = !r;
+      try {
+        localStorage.setItem("tm-relieff", ny ? "1" : "0");
+      } catch {
+        /* privat modus — valget glemmes */
+      }
+      return ny;
+    });
+  };
+
   // Engangs konsept-stripe (mobil) — setningen som bærer ideen, avvisbar.
   const [visIntro, setVisIntro] = useState(false);
   useEffect(() => {
@@ -181,8 +215,30 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
   const venterZoom = useRef<{ z: number; v: number } | null>(null);
   // Sentrum-året (oppdateres ved scroll) → gjenopprettes ved rotasjon/resize.
   const sentrumAarRef = useRef<number | null>(null);
+  // Forrige sentrum-år — for gap-krysnings-haptikk (E3).
+  const forrigeSentrumRef = useRef<number | null>(null);
   // Siste målte container-mål → skiller ekte resize fra no-op (unngår stale anker).
   const dimRef = useRef({ w: 0, h: 0 });
+  // Papirrelieffet: scene + dybdelag (imperative transforms — aldri state).
+  const sceneRef = useRef<HTMLDivElement>(null);
+  const lagRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const settLagRef = (navn: string) => (el: HTMLDivElement | null) => {
+    lagRefs.current[navn] = el;
+  };
+  // Parallakse/tilt-motoren: selvterminerende rAF-løkke med fjærer per lag.
+  const motorRef = useRef({
+    raf: null as number | null,
+    sistT: 0,
+    v: 0, // filtrert scrollhastighet (px/ms)
+    prøve: null as { pos: number; t: number } | null,
+    off: Object.fromEntries(
+      Object.keys(LAG_Z).map((k) => [k, [0, 0] as [number, number]]),
+    ),
+    tilt: [0, 0] as [number, number],
+  });
+  // Vakter leses per frame via ref (rAF-closure kan være gammel).
+  const motorPåRef = useRef(false);
+  const kjørMotorRef = useRef<() => void>(() => {});
   // Årstall-HUD (mobil): oppdateres imperativt fra påScroll — se AarHud.tsx.
   const hudRef = useRef<HTMLDivElement>(null);
   const hudAarRef = useRef<HTMLSpanElement>(null);
@@ -537,6 +593,81 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
     history.replaceState(null, "", url);
   }, [valgt, verk]);
 
+  // Nullstill relieff-bevegelsen SYNKRONT — kalles før all clientX/Y-matte
+  // (zoom/pinch) og ved layoutbytte, så ankerår-regnestykket aldri ser en
+  // transformert scene.
+  const nullstillRelieff = useCallback(() => {
+    const m = motorRef.current;
+    if (m.raf != null) cancelAnimationFrame(m.raf);
+    m.raf = null;
+    m.v = 0;
+    m.prøve = null;
+    m.tilt = [0, 0];
+    for (const k of Object.keys(m.off)) m.off[k] = [0, 0];
+    if (sceneRef.current) sceneRef.current.style.transform = "";
+    for (const el of Object.values(lagRefs.current)) {
+      if (el) el.style.transform = "";
+    }
+  }, []);
+
+  // Motor-frame: demp hastighet, fjærdriv tilt + per-lag heng, stopp i ro.
+  kjørMotorRef.current = () => {
+    const m = motorRef.current;
+    m.raf = null;
+    if (!motorPåRef.current) {
+      nullstillRelieff();
+      return;
+    }
+    const nå = performance.now();
+    const dt = Math.max(1, nå - m.sistT);
+    m.sistT = nå;
+    m.v *= Math.exp(-dt / 140); // scroll-stopp → hastigheten dør ut
+    const el = scrollRef.current;
+    const scene = sceneRef.current;
+    const rest: number[] = [m.v * 20];
+
+    // Tilt på scenen (self-perspective; .tm-scroll forblir utransformert)
+    const tiltMål = tiltVinkel(m.v);
+    m.tilt = fjaerSteg(m.tilt[0], m.tilt[1], tiltMål, dt);
+    rest.push(m.tilt[0], m.tilt[1] * 30);
+    if (scene && el) {
+      if (Math.abs(m.tilt[0]) < 0.02) {
+        scene.style.transform = "";
+      } else {
+        const midt = vannrett
+          ? el.scrollLeft + el.clientWidth / 2
+          : el.scrollTop + el.clientHeight / 2;
+        scene.style.transformOrigin = vannrett
+          ? `${midt}px 50%`
+          : `50% ${midt}px`;
+        scene.style.transform = `perspective(1200px) rotateX(${(vannrett ? 1 : -1) * m.tilt[0]}deg)`;
+      }
+    }
+
+    // Per-lag heng langs tidsaksen
+    for (const navn of Object.keys(LAG_Z)) {
+      const mål = lagOffset(m.v, LAG_Z[navn]);
+      m.off[navn] = fjaerSteg(m.off[navn][0], m.off[navn][1], mål, dt);
+      const pos = m.off[navn][0];
+      rest.push(pos, m.off[navn][1] * 30);
+      const lagEl = lagRefs.current[navn];
+      if (lagEl) {
+        lagEl.style.transform =
+          Math.abs(pos) < 0.05
+            ? ""
+            : vannrett
+              ? `translate3d(${pos.toFixed(2)}px, 0, 0)`
+              : `translate3d(0, ${pos.toFixed(2)}px, 0)`;
+      }
+    }
+
+    if (!iRo(rest)) {
+      m.raf = requestAnimationFrame(() => kjørMotorRef.current());
+    } else {
+      nullstillRelieff();
+    }
+  };
+
   // HUD-en (mobil) skrives rett i DOM — scroll skal aldri re-rendre SVG-treet.
   const oppdaterHud = useCallback(
     (sentrum: number) => {
@@ -586,6 +717,18 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
     );
     sentrumAarRef.current = sentrum;
     if (kompakt) oppdaterHud(sentrum);
+    // Relieff-motoren: mat hastighetsestimatet, vekk løkka om den sover.
+    if (motorPåRef.current) {
+      const m = motorRef.current;
+      const pos = lesScroll(el);
+      const nå = performance.now();
+      if (m.prøve) m.v = hastighet(m.prøve, { pos, t: nå }, m.v);
+      m.prøve = { pos, t: nå };
+      if (m.raf == null) {
+        m.sistT = nå;
+        m.raf = requestAnimationFrame(() => kjørMotorRef.current());
+      }
+    }
     if (kompakt && visIntro) {
       const pos = lesScroll(el);
       if (introScroll0.current == null) introScroll0.current = pos;
@@ -593,12 +736,43 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
     }
     // FAB-pila: NÅ ligger mot framtida (ned/høyre) når sentrum er i fortida.
     const retning = sentrum <= naa ? 1 : -1;
-    if (retning !== naaRetning) setNaaRetning(retning);
+    if (retning !== naaRetning) {
+      setNaaRetning(retning);
+      // E3: å krysse NÅ under scroll er en grensepassering — dobbel puls +
+      // bladet dirrer (kun mobil-relieff; startetRef skiller ekte scroll).
+      if (kompakt && motorPåRef.current && startetRef.current) {
+        dobbelTikk();
+        lagRefs.current.naa?.animate(
+          [
+            { translate: "0 0" },
+            { translate: "0 -2px" },
+            { translate: "0 1.2px" },
+            { translate: "0 0" },
+          ],
+          { duration: 220, easing: "ease-out" },
+        );
+      }
+    }
+    // E3: kryssing av et kollapsert strekk («340 yrs skipped») kjennes som
+    // ett lite hakk — århundrene du hopper over har fysisk motstand.
+    const forrige = forrigeSentrumRef.current;
+    forrigeSentrumRef.current = sentrum;
+    if (forrige != null && kompakt && motorPåRef.current) {
+      const lo = Math.min(forrige, sentrum);
+      const hi = Math.max(forrige, sentrum);
+      for (const seg of layout.skala.segmenter) {
+        if (seg.kollapset && seg.fra >= lo && seg.til <= hi) {
+          tikk(6);
+          break;
+        }
+      }
+    }
   };
 
   // Zoom ankret i et viewport-punkt langs tidsaksen (vLangs = px fra start-kanten).
   const zoomTil = useCallback(
     (nyZoom: number, vLangs: number) => {
+      nullstillRelieff(); // ankermatten må se en utransformert scene
       const el = scrollRef.current;
       const z = Math.max(ZOOM_MIN, Math.min(zoomMaks, +nyZoom.toFixed(3)));
       // Kun når zoom FAKTISK endres — ellers bailer setZoom(z) (ingen re-render), effekten
@@ -619,6 +793,7 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
   const planleggZoom = useCallback(
     (z: number, v: number) => {
       avbrytZoomTween(); // live gest vinner alltid over en pågående tween
+      nullstillRelieff(); // pinch-matte skal aldri se tilt/heng
       venterZoom.current = { z, v };
       if (zoomRafRef.current == null) {
         zoomRafRef.current = requestAnimationFrame(() => {
@@ -757,12 +932,27 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
     zoomTweenRef.current = requestAnimationFrame(kjør);
   };
 
+  // Kortets match-cut-utgangspunkt (relieff, desktop): nålens viewport-punkt.
+  const [kortFra, setKortFra] = useState<{ x: number; y: number } | null>(null);
+
   // Velg et verk. På mobil: sørg for at både markøren og laget-året (leap-linjas
   // andre ende) er synlige i ØVRE halvdel — kortet (peek) dekker nedre del.
   const velg = (idx: number) => {
     tikk();
     setValgt(idx);
-    if (!kompakt) return;
+    if (!kompakt) {
+      const s = layout.spor.find((p) => p.idx === idx);
+      const el = scrollRef.current;
+      if (s && el) {
+        const rekt = el.getBoundingClientRect();
+        setKortFra({
+          x: rekt.left + STARTX + s.x - el.scrollLeft,
+          y: rekt.top + s.y,
+        });
+      }
+      return;
+    }
+    setKortFra(null);
     const el = scrollRef.current;
     const s = layout.spor.find((p) => p.idx === idx);
     if (!el || !s || s.lagetLng == null) return;
@@ -883,10 +1073,93 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
   const svgW = vannrett ? layout.langsTotal : W;
   const svgH = vannrett ? H : layout.langsTotal;
   const wrap = vannrett ? `translate(${STARTX}, 0)` : `translate(0, ${TOPP})`;
+
+  // Motor-vakt: relieff på OG scenen ikke absurd stor (lineær modus kan gi
+  // 2M px — kompositor-tekstur-risiko, særlig Safari). Skygger beholdes.
+  motorPåRef.current = relieff && layout.langsTotal <= 500_000;
+
+  // Relieff av (toggle/PRM) → rydd transforms umiddelbart.
+  useEffect(() => {
+    if (!relieff) nullstillRelieff();
+  }, [relieff, nullstillRelieff]);
+
+  // Layoutbytte (zoom/filter/rotasjon/modus) → aldri arv gamle offsets.
+  useEffect(() => {
+    nullstillRelieff();
+  }, [layout, nullstillRelieff]);
+
+  // E1: filterbytte krysstoner scenen — verkene «legger seg i papiret» i
+  // stedet for å forsvinne abrupt. Kun relieff; aldri ved første mount.
+  const filterFørstRef = useRef(true);
+  useEffect(() => {
+    if (filterFørstRef.current) {
+      filterFørstRef.current = false;
+      return;
+    }
+    if (!motorPåRef.current) return;
+    sceneRef.current?.animate(
+      [{ opacity: 0.45 }, { opacity: 1 }],
+      { duration: 150, easing: "ease-out" },
+    );
+  }, [medier, kat]);
+
+  // Delte props for dybdelagene (Papirrelieffet) — samme geometri per lag.
+  const akseProps = {
+    skala: layout.skala,
+    ankere: synligeAnkere,
+    venstreX: VENSTRE,
+    W,
+    H,
+    naa,
+    toppCross,
+    bunnCross,
+    kompakt,
+    vannrett,
+    onVelgAnker: velgAnker,
+  };
   const klar = W > 0 && (!vannrett || H > 0);
 
+  // E4: landings-koreografi — én gang per sesjon «legger» lagene seg:
+  // utklippene faller på arket, nålene stikkes i, NÅ-bladet reiser seg sist.
+  const landetRef = useRef(false);
+  useEffect(() => {
+    if (!klar || !relieff || landetRef.current) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    try {
+      if (sessionStorage.getItem("tm-landet")) {
+        landetRef.current = true;
+        return;
+      }
+      sessionStorage.setItem("tm-landet", "1");
+    } catch {
+      /* privat modus: koreografien spilles hver gang — helt greit */
+    }
+    landetRef.current = true;
+    const rekkefolge: [string, number, number][] = [
+      ["epoker", -6, 0],
+      ["personer", -8, 70],
+      ["verk", -10, 150],
+      ["naa", -14, 300],
+    ];
+    for (const [navn, fall, forsinkelse] of rekkefolge) {
+      lagRefs.current[navn]?.animate(
+        [
+          { translate: `0 ${fall}px`, opacity: 0 },
+          { translate: "0 0", opacity: 1 },
+        ],
+        {
+          duration: 320,
+          delay: forsinkelse,
+          easing: "cubic-bezier(0.16, 1, 0.3, 1)",
+          fill: "backwards",
+        },
+      );
+    }
+  }, [klar, relieff]);
+
+
   return (
-    <div className="tm-app" data-vannrett={vannrett}>
+    <div className="tm-app" data-vannrett={vannrett} data-relieff={relieff}>
       <header className="tm-header">
         <div className="tm-bar">
           <div className="tm-brand">
@@ -943,6 +1216,15 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
                 — linear scale; empty stretches of time are no longer compressed
               </span>
             </button>
+            <button
+              type="button"
+              className="tm-relieff-toggle"
+              aria-pressed={relieff}
+              onClick={byttRelieff}
+              title="Paper relief — depth, shadows and parallax"
+            >
+              Depth
+            </button>
             {/* Ekstra view: planetarium-instrumentet. Papirutgaven er standard. */}
             <a className="tm-chrono-lenke" href="/chronoscope">
               Chronoscope ↗
@@ -966,6 +1248,20 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
           </div>
         </div>
         <div id="tm-skuff" className="tm-skuff" data-open={skuffÅpen}>
+          {/* Mobil: relieff-toggle + Chronoscope-lenke bor i skuffen (headeren er full) */}
+          <div className="tm-skuff-rad">
+            <button
+              type="button"
+              className="tm-relieff-toggle tm-skuff-relieff"
+              aria-pressed={relieff}
+              onClick={byttRelieff}
+            >
+              Depth
+            </button>
+            <a className="tm-chrono-lenke tm-skuff-chrono" href="/chronoscope">
+              Chronoscope ↗
+            </a>
+          </div>
         <ul className="tm-legend" aria-label="Legend">
           <li>
             <svg width="13" height="13" aria-hidden="true">
@@ -1117,27 +1413,56 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
           </div>
         )}
         {klar && (
-          <svg
-            width={svgW}
-            height={svgH}
-            viewBox={`0 0 ${svgW} ${svgH}`}
+          <div
+            className="tm-scene"
+            ref={sceneRef}
+            style={{ width: svgW, height: svgH }}
             role="group"
             aria-label="Timeline: fiction placed by the year it's set in, against real history and a NOW line."
           >
-            <g transform={wrap}>
-              <AkseLag
-                skala={layout.skala}
-                ankere={synligeAnkere}
-                venstreX={VENSTRE}
-                W={W}
-                H={H}
-                naa={naa}
-                toppCross={toppCross}
-                bunnCross={bunnCross}
-                kompakt={kompakt}
-                vannrett={vannrett}
-                onVelgAnker={velgAnker}
-              />
+            {/* Papirrelieffet: strataene bor i hver sin svg (CSS-3D virker ikke
+                INNE i en svg) — DOM-orden = dagens malingsorden, NÅ løftes
+                visuelt via z-index i relieff. Alle deler samme skala fra samme
+                commit → registrering under zoom/elastikk er automatisk. */}
+            <div className="tm-lag" data-lag="grunn" ref={settLagRef("grunn")}>
+              <svg width={svgW} height={svgH} viewBox={`0 0 ${svgW} ${svgH}`}>
+                <g transform={wrap}>
+                  <AkseLag {...akseProps} lag="grunn" />
+                </g>
+              </svg>
+            </div>
+            <div className="tm-lag" data-lag="epoker" ref={settLagRef("epoker")}>
+              <svg width={svgW} height={svgH} viewBox={`0 0 ${svgW} ${svgH}`}>
+                <g transform={wrap}>
+                  <AkseLag {...akseProps} lag="epoker" />
+                </g>
+              </svg>
+            </div>
+            <div className="tm-lag" data-lag="personer" ref={settLagRef("personer")}>
+              <svg width={svgW} height={svgH} viewBox={`0 0 ${svgW} ${svgH}`}>
+                <g transform={wrap}>
+                  <AkseLag {...akseProps} lag="personer" />
+                </g>
+              </svg>
+            </div>
+            <div className="tm-lag" data-lag="naa" ref={settLagRef("naa")} aria-hidden="true">
+              <svg width={svgW} height={svgH} viewBox={`0 0 ${svgW} ${svgH}`}>
+                <g transform={wrap}>
+                  <AkseLag {...akseProps} lag="naa" />
+                </g>
+              </svg>
+            </div>
+            <div className="tm-lag" data-lag="verk" ref={settLagRef("verk")}>
+              <svg width={svgW} height={svgH} viewBox={`0 0 ${svgW} ${svgH}`}>
+                {/* Felles myk pin-skygge — 175 rene gradient-fills, ingen filtre. */}
+                <defs>
+                  <radialGradient id="tm-pinskygge">
+                    <stop offset="0" stopColor="var(--skygge)" />
+                    <stop offset="0.7" stopColor="var(--skygge-svak)" />
+                    <stop offset="1" stopColor="var(--skygge)" stopOpacity="0" />
+                  </radialGradient>
+                </defs>
+                <g transform={wrap}>
               {/* Valgt spor rendres SIST → ring + tittel havner øverst. */}
               {(valgt == null
                 ? layout.spor
@@ -1190,22 +1515,11 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
               {/* Epoke-etikettenes treff-flater OVER verkene: i tette strøk dekker
                   verkenes 44px-treffsirkler båndene — et tap på selve etiketten
                   skal likevel alltid åpne epoken. */}
-              <AkseLag
-                skala={layout.skala}
-                ankere={synligeAnkere}
-                venstreX={VENSTRE}
-                W={W}
-                H={H}
-                naa={naa}
-                toppCross={toppCross}
-                bunnCross={bunnCross}
-                kompakt={kompakt}
-                vannrett={vannrett}
-                onVelgAnker={velgAnker}
-                lag="treff"
-              />
-            </g>
-          </svg>
+              <AkseLag {...akseProps} lag="treff" />
+                </g>
+              </svg>
+            </div>
+          </div>
         )}
         {W > 0 && layout.spor.length === 0 && (
           <p className="tm-tom" role="status">
@@ -1229,6 +1543,8 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
         verk={valgt != null ? verk[valgt] : null}
         naa={naa}
         onLukk={lukkKort}
+        fraPunkt={kortFra}
+        relieff={relieff}
       />
 
       <AnkerKort anker={valgtAnker} onLukk={() => setValgtAnker(null)} />

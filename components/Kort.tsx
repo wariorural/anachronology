@@ -51,10 +51,13 @@ interface Props {
   verk: Verk | null;
   naa: number;
   onLukk: () => void;
+  /** Relieff (desktop): kortet match-cuttes UT FRA nålens viewport-punkt. */
+  fraPunkt?: { x: number; y: number } | null;
+  relieff?: boolean;
 }
 
 // Klikk på en markør åpner dette. Her — og bare her — bor "når det ble laget".
-export default function Kort({ verk, naa, onLukk }: Props) {
+export default function Kort({ verk, naa, onLukk, fraPunkt, relieff }: Props) {
   const ref = useRef<HTMLDialogElement>(null);
   const artRef = useRef<HTMLDivElement>(null);
   // Behold forrige innhold mens kortet toner UT, ellers blir panelet tomt.
@@ -62,6 +65,9 @@ export default function Kort({ verk, naa, onLukk }: Props) {
   // Mobil: arket åpner i «peek» (tittel + punchline; tidslinja bak forblir
   // synlig) og kan dras til «full». Desktop/landskap ignorerer attributtet.
   const [snap, setSnap] = useState<"peek" | "full">("peek");
+  // E5: gripa pulser svakt de FØRSTE gangene kortet åpnes — affordance-hint,
+  // engangs (localStorage), aldri mas.
+  const [gripeHint, setGripeHint] = useState(false);
 
   useEffect(() => {
     const d = ref.current;
@@ -69,16 +75,38 @@ export default function Kort({ verk, naa, onLukk }: Props) {
     if (verk) {
       setVist(verk);
       setSnap("peek");
+      try {
+        if (!localStorage.getItem("tm-gripe-hint")) {
+          localStorage.setItem("tm-gripe-hint", "1");
+          setGripeHint(true);
+        }
+      } catch {
+        /* uten lagring: ingen hint — heller for lite enn mas */
+      }
       if (!d.open) {
         d.showModal();
         // showModal() autofokuserer lukkeknappen → synlig fokus-ring ved åpning.
         // Flytt fokus til selve arket (fokuserbart, men uten ring) i stedet.
         artRef.current?.focus();
+        // Match-cut (relieff, desktop): kortet VOKSER ut fra nålen som åpnet
+        // det — cinema-grammatikk i stedet for generisk ark-gli. WAAPI over-
+        // styrer CSS-transisjonen kun mens den kjører.
+        if (fraPunkt && relieff && !erMobil() && !foretrekkerRo()) {
+          const r = d.getBoundingClientRect();
+          d.style.transformOrigin = `${fraPunkt.x - r.left}px ${fraPunkt.y - r.top}px`;
+          d.animate(
+            [
+              { transform: "scale(0.22)", opacity: 0.2 },
+              { transform: "scale(1)", opacity: 1 },
+            ],
+            { duration: 260, easing: "cubic-bezier(0.16, 1, 0.3, 1)" },
+          );
+        }
       }
     } else if (d.open) {
       d.close();
     }
-  }, [verk]);
+  }, [verk, fraPunkt, relieff]);
 
   // Drag-sesjon (mobil): fra gripe-sonen alltid; fra innholdet kun i peek
   // (der er arket uansett uscrollbart). Full-tilstand scroller normalt —
@@ -198,7 +226,7 @@ export default function Kort({ verk, naa, onLukk }: Props) {
           {/* Gripe-sone: dekorativ (aria-hidden) — lukking er fortsatt fullt
               tastatur-tilgjengelig via × og Escape. Tap veksler peek/full. */}
           <div
-            className="tm-kort-gripe"
+            className={`tm-kort-gripe${gripeHint ? " tm-gripe-hint" : ""}`}
             aria-hidden="true"
             onClick={() => {
               if (!erMobil()) return;
