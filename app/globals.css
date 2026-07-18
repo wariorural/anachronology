@@ -857,6 +857,53 @@ body {
   padding: 20px 22px calc(18px + env(safe-area-inset-bottom));
 }
 
+/* Gripe-sone: pill + romslig treffsone. Kun bunnark-varianter (<700px);
+   landskap-popupen og desktop-arket har ingen drag. */
+.tm-kort-gripe {
+  display: none;
+  padding: 8px 0 4px;
+  margin: -12px 0 -4px;
+  touch-action: none; /* drag herfra skal aldri tolkes som scroll */
+  cursor: grab;
+}
+
+.tm-kort-gripe::before {
+  content: "";
+  display: block;
+  width: 36px;
+  height: 4px;
+  margin: 0 auto;
+  border-radius: 999px;
+  background: var(--rule);
+}
+
+@media (max-width: 699px) {
+  .tm-kort-gripe {
+    display: block;
+  }
+}
+
+/* Snap-tilstander (kun mobil): peek = tittel + punchline, tidslinja bak synlig.
+   max-height-overgangen bruker samme kurve som inngangen. */
+@media (max-width: 430px) {
+  .tm-kort {
+    transition:
+      opacity 0.22s ease,
+      transform 0.22s cubic-bezier(0.32, 0.72, 0, 1),
+      max-height 0.3s cubic-bezier(0.32, 0.72, 0, 1),
+      overlay 0.22s ease allow-discrete,
+      display 0.22s ease allow-discrete;
+  }
+  .tm-kort[data-snap="peek"] {
+    max-height: 42dvh;
+    overflow: hidden; /* peek scroller ikke — drag hvor som helst flytter arket */
+    touch-action: none;
+  }
+  .tm-kort[data-snap="full"] {
+    max-height: calc(100dvh - 48px);
+  }
+}
+
 /* Arket fokuseres ved åpning (for å ta ringen av lukkeknappen) — ingen egen ring. */
 .tm-kort article:focus {
   outline: none;
@@ -1214,5 +1261,14 @@ body {
     .tm-kort[open] {
       transform: translateY(10px) scale(0.98);
     }
+  }
+  /* Popupen er ikke et ark — ingen gripe, ingen peek-klipp */
+  .tm-kort-gripe {
+    display: none;
+  }
+  .tm-kort[data-snap="peek"] {
+    max-height: calc(100dvh - 28px);
+    overflow-y: auto;
+    touch-action: auto;
   }
 }
