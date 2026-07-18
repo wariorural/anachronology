@@ -21,7 +21,20 @@ interface Props {
   kompakt?: boolean;
   /** true = horisontal tidslinje (desktop): tidsaksen løper langs X. */
   vannrett?: boolean;
+  /** Gjør ankrene trykkbare: tap på epoke/person/hendelse/oppfinnelse åpner kortet. */
+  onVelgAnker?: (a: Anker) => void;
+  /** "bakgrunn" (default) = hele stratumet. "treff" = KUN usynlige treff-flater
+   *  over epoke-etikettene — rendres ETTER verkene så etikett-tap vinner over
+   *  verkenes 44px-treffsirkler i tette strøk. Samme props → samme geometri. */
+  lag?: "bakgrunn" | "treff";
 }
+
+const TYPE_NAVN: Record<Anker["type"], string> = {
+  epoke: "era",
+  hendelse: "event",
+  oppfinnelse: "invention",
+  person: "person",
+};
 
 // Spre punkt-etiketter (oppfinnelser/mat) NED i kroppen i stedet for å stable dem øverst:
 // hver får en stabil lane fra en hash av tittelen (deterministisk), nudget til nærmeste
@@ -65,8 +78,23 @@ function spreEtiketter(
 // Bakgrunnen fiksjonen sitter mot: framtidssone, epoke-bånd, årsgrid, gap-markører,
 // hendelse-/oppfinnelse-etiketter og NÅ-hodet. Orienterings-bevisst: tidsaksen er
 // X (vannrett/desktop) eller Y (mobil). `L(år)` = posisjon langs tidsaksen.
-function AkseLag({ skala, ankere, venstreX, W, H, naa, toppCross = 108, bunnCross = 50, kompakt, vannrett }: Props) {
+function AkseLag({ skala, ankere, venstreX, W, H, naa, toppCross = 108, bunnCross = 50, kompakt, vannrett, onVelgAnker, lag = "bakgrunn" }: Props) {
   const L = (aar: number) => skala.yearToY(aar);
+
+  // Trykkbart anker: pointer + aktiverbar for SR (utenfor tab-rekka — 80+ ankere
+  // i tab-sekvensen ville druknet verkenes roving-fokus; virtuell markør når dem).
+  const interaktiv = (a: Anker) =>
+    onVelgAnker
+      ? {
+          className: "tm-anker-knapp",
+          role: "button" as const,
+          tabIndex: -1,
+          "aria-label": `${a.tittel}, ${TYPE_NAVN[a.type]}${
+            a.fra === a.til ? ` ${fmtAar(a.fra)}` : `, ${fmtAar(a.fra)}–${fmtAar(a.til)}`
+          }. Tap for details.`,
+          onClick: () => onVelgAnker(a),
+        }
+      : {};
   const langsEnd = skala.hoyde; // siste posisjon langs aksen (innenfor gruppa)
   const yNaa = L(naa);
 
@@ -117,6 +145,8 @@ function AkseLag({ skala, ankere, venstreX, W, H, naa, toppCross = 108, bunnCros
   // Cross-extent epoke-banene deler: horisontalt = høyden mellom gutters; vertikalt = bredden.
   const epokeStart = vannrett ? toppCross : 6; // tverr-start (markørbandets topp / venstre 6)
   const epokeBrukbar = vannrett ? Math.max(0, H - toppCross - bunnCross) : W - 12;
+  // Treff-flater over epoke-etikettene (til lag="treff" — se prop-doc).
+  const etikettTreff: React.ReactNode[] = [];
   const baand = epoker.map((a, i) => {
     const antall = kolonner.get(comp[i])!;
     const kolBredde = epokeBrukbar / antall;
@@ -133,25 +163,49 @@ function AkseLag({ skala, ankere, venstreX, W, H, naa, toppCross = 108, bunnCros
     // Mobil: tida løper vertikalt, så navnet står LANGS båndet (rotert 90°, leser nedover)
     // — da krysser det aldri kontekst-etikettene på tvers slik horisontal tekst gjorde.
     const caps = a.tittel.toUpperCase();
-    const labelBredde = caps.length * 6.2 + 8;
-    const visLabel = langsLen >= labelBredde;
+    // Korte epoker (kunstretningene: 20–50 år) fikk aldri etikett og ble anonyme
+    // bånd — nå avkortes teksten til det båndet rommer («IMPRES…») i stedet.
+    const maksTegn = Math.floor((langsLen - 10) / 7);
+    const visLabel = maksTegn >= 4;
+    const labelTekst =
+      caps.length <= maksTegn ? caps : caps.slice(0, Math.max(3, maksTegn - 1)) + "…";
     const lx = vannrett ? l0 + langsLen / 2 : bx + bw / 2;
     const ly = vannrett ? bx + 13 : l0 + 6;
+    if (visLabel && onVelgAnker) {
+      const len = labelTekst.length * 7;
+      const treffRekt = vannrett
+        ? { x: lx - len / 2 - 4, y: ly - 13, width: len + 8, height: 18 }
+        : { x: lx - 11, y: ly - 4, width: 22, height: len + 8 };
+      etikettTreff.push(
+        <rect
+          key={`treff-${i}`}
+          {...treffRekt}
+          fill="transparent"
+          className="tm-anker-knapp"
+          onClick={() => onVelgAnker(a)}
+        />,
+      );
+    }
     return (
-      <g key={`epoke-${i}`}>
+      <g key={`epoke-${i}`} {...interaktiv(a)}>
         <rect {...rekt} rx={10} fill="var(--bg-baand)" />
         {visLabel && (
+          /* Papir-halo: etiketten forblir lesbar der bånd, grid og livsbånd
+             krysser — før druknet den i sitt eget stratum. */
           <text
             x={lx}
             y={ly}
             transform={vannrett ? undefined : `rotate(90 ${lx} ${ly})`}
             textAnchor={vannrett ? "middle" : "start"}
-            fontSize={vannrett ? 10 : 9}
-            fontWeight={600}
+            fontSize={10.5}
+            fontWeight={650}
             letterSpacing=".08em"
             fill="var(--bg-etikett)"
+            stroke="var(--paper)"
+            strokeWidth={3}
+            paintOrder="stroke"
           >
-            {caps}
+            {labelTekst}
           </text>
         )}
       </g>
@@ -195,7 +249,7 @@ function AkseLag({ skala, ankere, venstreX, W, H, naa, toppCross = 108, bunnCros
       nesteFra[i] === Infinity ? Infinity : L(nesteFra[i]) - l0;
     const visNavn = plassTilNavn >= a.tittel.length * 4.8 + 10;
     return (
-      <g key={`person-${i}`}>
+      <g key={`person-${i}`} {...interaktiv(a)}>
         <rect {...rekt} rx={pTykk / 2} fill="var(--bg-person)" />
         {/* Navn kun på desktop — mobil holdes ren (bare det svake båndet bak bildene). */}
         {vannrett && visNavn && (
@@ -364,7 +418,9 @@ function AkseLag({ skala, ankere, venstreX, W, H, naa, toppCross = 108, bunnCros
     const p = L(a.fra);
     const pos = ktxPos(kontekstLane.get(a)!, p);
     return (
-      <g key={`hendelse-${i}`}>
+      <g key={`hendelse-${i}`} {...interaktiv(a)}>
+        {/* usynlig fet treff-linje — 1px-linja er umulig å treffe på touch */}
+        {tverrLinje(p, `hh-${i}`, "transparent", 16)}
         {tverrLinje(p, `hl-${i}`, "var(--rule)", 1)}
         <text x={pos.x} y={pos.y} textAnchor={pos.anchor} fontSize={10} fontWeight={400} letterSpacing=".04em" fill="var(--bg-etikett)" stroke="var(--paper)" strokeWidth={3} paintOrder="stroke">
           {ktxTekst(a, false)}
@@ -378,7 +434,8 @@ function AkseLag({ skala, ankere, venstreX, W, H, naa, toppCross = 108, bunnCros
     const p = L(a.fra);
     const pos = ktxPos(kontekstLane.get(a)!, p);
     return (
-      <g key={`oppf-${i}`}>
+      <g key={`oppf-${i}`} {...interaktiv(a)}>
+        {tverrLinje(p, `oh-${i}`, "transparent", 16)}
         {tverrLinje(p, `ol-${i}`, "var(--rule)", 1, "1 5")}
         <text x={pos.x} y={pos.y} textAnchor={pos.anchor} fontSize={10} fontWeight={400} letterSpacing=".04em" fill="var(--bg-etikett)" stroke="var(--paper)" strokeWidth={3} paintOrder="stroke">
           {ktxTekst(a, true)}
@@ -404,6 +461,12 @@ function AkseLag({ skala, ankere, venstreX, W, H, naa, toppCross = 108, bunnCros
   const framtid = vannrett
     ? { x: yNaa, y: 0, width: Math.max(0, langsEnd - yNaa), height: H }
     : { x: 0, y: yNaa, width: W, height: Math.max(0, langsEnd - yNaa) };
+
+  // Treff-laget: bare de usynlige etikett-flatene, tegnet over verkene.
+  // aria-hidden — bakgrunnslagets bånd bærer allerede rolle/label for SR.
+  if (lag === "treff") {
+    return <g aria-hidden="true">{etikettTreff}</g>;
+  }
 
   return (
     <g>

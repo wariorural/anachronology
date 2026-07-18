@@ -1003,6 +1003,17 @@ body {
 .tm-plus {
   cursor: pointer;
 }
+
+/* Trykkbare ankere (epoker/kunstretninger, personer, hendelser, oppfinnelser):
+   pointer + et forsiktig hover-løft på båndet — bakgrunnen skal invitere, ikke rope. */
+.tm-anker-knapp {
+  cursor: pointer;
+}
+
+.tm-anker-knapp:hover rect:first-of-type,
+.tm-anker-knapp:active rect:first-of-type {
+  fill: rgba(26, 25, 22, 0.1);
+}
 .tm-plus rect {
   fill: var(--ink-soft);
 }
