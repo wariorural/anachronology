@@ -1304,3 +1304,421 @@ body {
     touch-action: auto;
   }
 }
+
+/* ================= CHRONOSCOPE (/chronoscope) =================
+   Ekstra view — planetarium-instrumentet. Egne tokens (cs-),
+   papirutgavens tm-tokens røres ikke. To-fargeregelen: rav (fortid)
+   og fosfor-cyan (framtid) er de ENESTE datafargene; bloom kun på NÅ. */
+
+.cs-rot {
+  --cs-ground: #0a0b10;
+  --cs-surface: #12141c;
+  --cs-hairline: #262a36;
+  --cs-ink: #e8e6df;
+  --cs-ink-2: #8b8e99;
+  --cs-ink-3: #565a66;
+  --cs-past: #ffb25e;
+  --cs-future: #6fe3ff;
+  --cs-now: #ffffff;
+  --cs-serif: var(--cs-serif-loaded, Georgia), "Times New Roman", serif;
+  --cs-mono: var(--cs-mono-loaded, ui-monospace), "SF Mono", Menlo, monospace;
+  height: 100dvh;
+  background: var(--cs-ground);
+  color: var(--cs-ink);
+}
+
+.cs-app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.cs-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: calc(12px + env(safe-area-inset-top)) 18px 12px;
+  border-bottom: 1px solid var(--cs-hairline);
+}
+
+.cs-wordmark {
+  font-family: var(--cs-serif);
+  font-size: 22px;
+  margin-right: 12px;
+}
+
+.cs-under {
+  font-family: var(--cs-mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--cs-ink-2);
+}
+
+.cs-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cs-nav button {
+  font: inherit;
+  font-family: var(--cs-mono);
+  width: 34px;
+  height: 34px;
+  background: transparent;
+  color: var(--cs-ink);
+  border: 1px solid var(--cs-hairline);
+  border-radius: 2px;
+  cursor: pointer;
+}
+
+.cs-nav button:hover {
+  border-color: var(--cs-ink-2);
+}
+
+.cs-nav a {
+  font-family: var(--cs-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--cs-ink-2);
+  text-decoration: none;
+  margin-left: 8px;
+}
+
+.cs-nav a:hover {
+  color: var(--cs-ink);
+}
+
+.cs-nav a:focus-visible,
+.cs-nav button:focus-visible {
+  outline: 2px solid var(--cs-now);
+  outline-offset: 2px;
+}
+
+.cs-scroll {
+  flex: 1 1 auto;
+  position: relative;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.cs-app[data-vannrett="true"] .cs-scroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.cs-scroll:focus-visible {
+  outline: 2px solid var(--cs-now);
+  outline-offset: -2px;
+}
+
+.cs-scroll svg {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* mikro-etiketter på instrumentet */
+.cs-etikett {
+  font-family: var(--cs-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.16em;
+  fill: var(--cs-ink-3);
+}
+
+.cs-aar {
+  font-family: var(--cs-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  fill: var(--cs-ink-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.cs-teller {
+  font-family: var(--cs-mono);
+  font-size: 11.5px;
+  letter-spacing: 0.14em;
+  fill: var(--cs-ink-2);
+}
+
+.cs-teller-rav { fill: var(--cs-past); }
+.cs-teller-cyan { fill: var(--cs-future); }
+
+/* buer: hvilende → lysende ved hover/fokus/valg */
+.cs-bue { cursor: pointer; }
+.cs-bue:focus { outline: none; }
+
+.cs-kjerne {
+  opacity: 0.8;
+  transition: opacity 0.15s ease, stroke-width 0.15s ease;
+  animation: cs-tegn 1.1s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  stroke-dasharray: 100;
+}
+
+@keyframes cs-tegn {
+  from { stroke-dashoffset: 100; }
+  to { stroke-dashoffset: 0; }
+}
+
+/* stiplede (usikker) buer kan ikke bruke dash-tegning — de får ren fade */
+.cs-kjerne[stroke-dasharray="5 4"] {
+  animation-name: cs-fade;
+  stroke-dasharray: 5 4;
+}
+
+@keyframes cs-fade {
+  from { opacity: 0; }
+}
+
+.cs-bue:hover .cs-kjerne,
+.cs-bue:focus-visible .cs-kjerne,
+.cs-valgt .cs-kjerne {
+  opacity: 1;
+  stroke-width: 2.4;
+}
+
+.cs-bue:hover .cs-halo,
+.cs-bue:focus-visible .cs-halo,
+.cs-valgt .cs-halo {
+  opacity: 0.28;
+}
+
+.cs-bue:focus-visible .cs-glyf {
+  stroke: var(--cs-now);
+  stroke-width: 2;
+}
+
+.cs-tittel {
+  font-family: var(--cs-serif);
+  font-style: italic;
+  font-size: 17px;
+  fill: var(--cs-ink);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+  paint-order: stroke;
+  stroke: var(--cs-ground);
+  stroke-width: 4;
+}
+
+.cs-bue:hover .cs-tittel,
+.cs-bue:focus-visible .cs-tittel,
+.cs-valgt .cs-tittel {
+  opacity: 1;
+}
+
+/* ---- tittelkortet: letterbox + hero-tall ---- */
+.cs-kort {
+  margin: auto;
+  width: min(560px, calc(100vw - 32px));
+  padding: 0;
+  background: var(--cs-surface);
+  color: var(--cs-ink);
+  border: 1px solid var(--cs-hairline);
+  border-top: 14px solid #000;
+  border-bottom: 14px solid #000;
+  border-radius: 6px;
+  opacity: 0;
+  transform: translateY(14px) scale(0.985);
+  transition:
+    opacity 0.24s ease,
+    transform 0.24s cubic-bezier(0.16, 1, 0.3, 1),
+    overlay 0.24s ease allow-discrete,
+    display 0.24s ease allow-discrete;
+}
+
+.cs-kort[open] {
+  opacity: 1;
+  transform: none;
+}
+
+@starting-style {
+  .cs-kort[open] {
+    opacity: 0;
+    transform: translateY(14px) scale(0.985);
+  }
+}
+
+.cs-kort::backdrop {
+  background: rgba(4, 5, 9, 0);
+  transition:
+    background 0.2s ease,
+    overlay 0.2s ease allow-discrete,
+    display 0.2s ease allow-discrete;
+}
+
+.cs-kort[open]::backdrop {
+  background: rgba(4, 5, 9, 0.55);
+}
+
+@starting-style {
+  .cs-kort[open]::backdrop {
+    background: rgba(4, 5, 9, 0);
+  }
+}
+
+.cs-kort article {
+  position: relative;
+  padding: 26px 28px calc(24px + env(safe-area-inset-bottom));
+}
+
+.cs-kort article:focus { outline: none; }
+
+.cs-kort-lukk {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 34px;
+  height: 34px;
+  font-size: 20px;
+  background: transparent;
+  border: 0;
+  color: var(--cs-ink-2);
+  cursor: pointer;
+}
+
+.cs-kort-lukk:focus-visible {
+  outline: 2px solid var(--cs-now);
+  outline-offset: 2px;
+}
+
+.cs-kort-hero {
+  margin: 6px 0 0;
+  font-family: var(--cs-mono);
+  font-size: 72px;
+  font-weight: 500;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--cs-future);
+}
+
+.cs-kort-hero[data-caught="true"],
+.cs-hero-nøytral {
+  color: var(--cs-past);
+}
+
+.cs-kort-merke {
+  margin: 6px 0 18px;
+  font-family: var(--cs-mono);
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  color: var(--cs-ink-2);
+}
+
+.cs-kort-tittel {
+  margin: 0 0 8px;
+  font-family: var(--cs-serif);
+  font-style: italic;
+  font-weight: 400;
+  font-size: 34px;
+  line-height: 1.1;
+}
+
+.cs-kort-linje {
+  margin: 0 0 18px;
+  font-family: var(--cs-serif);
+  font-size: 17px;
+  color: var(--cs-ink);
+}
+
+.cs-kort-meta {
+  margin: 0 0 12px;
+  font-family: var(--cs-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  line-height: 1.8;
+  color: var(--cs-ink-2);
+}
+
+.cs-kort-merknad {
+  margin: 0 0 16px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--cs-ink);
+}
+
+.cs-kort-foot {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  border-top: 1px solid var(--cs-hairline);
+  padding-top: 14px;
+}
+
+.cs-kort-foot a {
+  font-family: var(--cs-mono);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: var(--cs-past);
+  text-decoration: none;
+}
+
+.cs-kort-foot a:hover { text-decoration: underline; }
+
+.cs-kort-foot a:focus-visible {
+  outline: 2px solid var(--cs-now);
+  outline-offset: 2px;
+}
+
+.cs-kort-foot span {
+  font-size: 11px;
+  color: var(--cs-ink-3);
+}
+
+/* lenke fra papirutgaven */
+.tm-chrono-lenke {
+  display: inline-flex;
+  align-items: center;
+  height: var(--control-h);
+  padding: 0 10px;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink);
+  border: 1px solid var(--ink);
+  text-decoration: none;
+  background: var(--paper);
+}
+
+.tm-chrono-lenke:hover {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.tm-chrono-lenke:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cs-kjerne {
+    animation: none;
+  }
+  .cs-kjerne,
+  .cs-halo,
+  .cs-tittel,
+  .cs-kort,
+  .cs-kort::backdrop {
+    transition: none;
+  }
+  .cs-kort {
+    transform: none;
+  }
+}
+
+@media (max-width: 430px) {
+  .cs-wordmark { font-size: 18px; }
+  .cs-under { display: block; margin-top: 2px; }
+  .cs-kort {
+    margin: auto auto 0;
+    width: 100vw;
+    border-radius: 10px 10px 0 0;
+    border-bottom: 0;
+  }
+  .cs-kort-hero { font-size: 56px; }
+  .cs-kort-tittel { font-size: 27px; }
+}
