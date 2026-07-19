@@ -98,7 +98,7 @@ export default function ChronoKort({ verk, naa, onLukk }: Props) {
           {v.merknad && <p className="cs-kort-merknad">{v.merknad}</p>}
           <footer className="cs-kort-foot">
             <a href={wikiUrl(v.tittel, v.wiki)} target="_blank" rel="noopener noreferrer">
-              Wikipedia ↗
+              Wikipedia {"\u2197\uFE0E"}
             </a>
             {v.kilde && <span>{v.kilde}</span>}
           </footer>

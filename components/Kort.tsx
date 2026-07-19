@@ -301,7 +301,7 @@ export default function Kort({ verk, naa, onLukk, fraPunkt, relieff }: Props) {
 
           <footer className="tm-kort-foot">
             <a href={wikiUrl(v.tittel, v.wiki)} target="_blank" rel="noopener noreferrer">
-              Wikipedia ↗
+              Wikipedia {"\u2197\uFE0E"}
             </a>
             {v.kilde && <span className="tm-kort-kilde">{v.kilde}</span>}
           </footer>

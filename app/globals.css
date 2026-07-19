@@ -1393,6 +1393,30 @@ body {
     align-items: stretch;
     gap: 8px;
   }
+  /* Landskap: hjemmeindikator skal ikke ligge oppå årstallene */
+  .tm-app {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  /* Rail-knappene skal være KOMPAKTE kvadrater — Depth/Chronoscope arvet
+     fulle bredder og gjorde railen dominant (brukertest-funn). */
+  .tm-controls .tm-relieff-toggle,
+  .tm-controls .tm-chrono-lenke {
+    width: 100% !important;
+    min-height: 44px;
+    padding: 0 !important;
+    font-size: 8px !important;
+    letter-spacing: 0.04em;
+    justify-content: center;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+  }
+
+  .tm-chrono-lang {
+    display: none;
+  }
+
   /* Alle rail-knappene = identiske bokser: full bredde, 44px tap-target.
      Scopet under .tm-controls så de slår base-regelen .tm-controls button (30px). */
   .tm-controls .tm-naa,
@@ -1495,6 +1519,7 @@ body {
   display: flex;
   flex-direction: column;
   height: 100%;
+  position: relative; /* anker for NÅ-FAB */
 }
 
 .cs-header {
@@ -1569,11 +1594,44 @@ body {
   overflow-x: hidden;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
+  /* nettleser-pinch av — vår egen ankrede pinch styrer */
+  touch-action: pan-y;
 }
 
 .cs-app[data-vannrett="true"] .cs-scroll {
   overflow-x: auto;
   overflow-y: hidden;
+  touch-action: pan-x;
+}
+
+/* NÅ-FAB — samme rolle som paper-utgavens, i instrumentets register */
+.cs-fab {
+  position: absolute;
+  right: 14px;
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  z-index: 15;
+  min-height: 44px;
+  padding: 0 16px;
+  font: inherit;
+  font-family: var(--cs-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  background: color-mix(in srgb, var(--cs-ground) 82%, transparent);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  color: var(--cs-ink);
+  border: 1px solid var(--cs-hairline);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.cs-fab:hover {
+  border-color: var(--cs-ink-2);
+}
+
+.cs-fab:focus-visible {
+  outline: 2px solid var(--cs-now);
+  outline-offset: 2px;
 }
 
 .cs-scroll:focus-visible {
@@ -1833,10 +1891,21 @@ body {
   color: var(--cs-ink-3);
 }
 
-/* lenke fra papirutgaven */
+/* lenke fra papirutgaven. Kort «Scope»-etikett kun i landskaps-railen. */
+.tm-chrono-kort {
+  display: none;
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .tm-chrono-kort {
+    display: inline;
+  }
+}
+
 .tm-chrono-lenke {
   display: inline-flex;
   align-items: center;
+  gap: 4px;
   height: var(--control-h);
   padding: 0 10px;
   font-size: 10px;
