@@ -46,7 +46,18 @@ export default function Chronoscope({ verk, ankere, naa: naaBygg }: Props) {
   const [zoom, setZoom] = useState(2.4);
   const [valgt, setValgt] = useState<number | null>(null);
   const [fokusIdx, setFokusIdx] = useState<number | null>(null);
+  const [naaRetning, setNaaRetning] = useState<1 | -1>(1);
   const startetRef = useRef(false);
+  // Zoom-ankring (samme mønster som paper-utgaven): lås ett ÅR til et
+  // viewport-punkt før zoom, gjenopprett scroll etter re-layout — uten dette
+  // står scroll-posisjonen i px mens innholdet vokser, og man drifter mot
+  // scenens start (dyp fortid).
+  const ankerRef = useRef<{ aar: number; v: number } | null>(null);
+  // Pinch/wheel coalesces til én oppdatering per frame.
+  const pekere = useRef(new Map<number, { x: number; y: number }>());
+  const pinch = useRef<{ avstand: number; zoom: number } | null>(null);
+  const zoomRafRef = useRef<number | null>(null);
+  const venterZoom = useRef<{ z: number; v: number } | null>(null);
 
   useLayoutEffect(() => {
     const el = scrollRef.current;
@@ -157,8 +168,48 @@ export default function Chronoscope({ verk, ankere, naa: naaBygg }: Props) {
       }
     }
 
-    return { skala, L, pNaa, total, akse, buer, orden, naaIdx };
+    return { skala, L, pNaa, total, akse, buer, orden, naaIdx, offset: OFFSET };
   }, [verk, naa, zoom, W, H, vannrett]);
+
+  // Orienterings-abstraksjon for scroll langs tidsaksen.
+  const lesScroll = (el: HTMLElement) => (vannrett ? el.scrollLeft : el.scrollTop);
+  const settScroll = (el: HTMLElement, p: number) => {
+    if (vannrett) el.scrollLeft = p;
+    else el.scrollTop = p;
+  };
+  const synsLangs = (el: HTMLElement) => (vannrett ? el.clientWidth : el.clientHeight);
+
+  // Ankret zoom: året i vLangs (px fra viewport-start) skal stå stille.
+  const zoomTil = (nyZoom: number, vLangs: number) => {
+    const el = scrollRef.current;
+    const z = Math.max(0.5, Math.min(10, +nyZoom.toFixed(3)));
+    if (el && z !== zoom) {
+      const innhold = lesScroll(el) + vLangs - layout.offset;
+      ankerRef.current = { aar: layout.skala.yToYear(innhold), v: vLangs };
+    }
+    setZoom(z);
+  };
+
+  const planleggZoom = (z: number, v: number) => {
+    venterZoom.current = { z, v };
+    if (zoomRafRef.current == null) {
+      zoomRafRef.current = requestAnimationFrame(() => {
+        zoomRafRef.current = null;
+        const p = venterZoom.current;
+        if (p) zoomTil(p.z, p.v);
+      });
+    }
+  };
+
+  // Gjenopprett anker-året etter re-layout (zoom endret skalaen).
+  useLayoutEffect(() => {
+    const el = scrollRef.current;
+    const anker = ankerRef.current;
+    if (!el || !anker) return;
+    ankerRef.current = null;
+    settScroll(el, layout.offset + layout.skala.yearToY(anker.aar) - anker.v);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [layout]);
 
   // Start sentrert på NÅ.
   useLayoutEffect(() => {
@@ -197,6 +248,76 @@ export default function Chronoscope({ verk, ankere, naa: naaBygg }: Props) {
     tikk();
     setValgt(idx);
   };
+
+  // NÅ-orientering: FAB-pila peker mot NÅ relativt til viewport-senteret.
+  const påScroll = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const sentrum = lesScroll(el) + synsLangs(el) / 2;
+    const retning = sentrum <= layout.pNaa ? 1 : -1;
+    if (retning !== naaRetning) setNaaRetning(retning);
+  };
+
+  const hoppTilNaa = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    tikk();
+    const mål = layout.pNaa - synsLangs(el) / 2;
+    const glatt = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (vannrett) el.scrollTo({ left: mål, behavior: glatt ? "smooth" : "auto" });
+    else el.scrollTo({ top: mål, behavior: glatt ? "smooth" : "auto" });
+  };
+
+  // Pinch-zoom (mobil) — ankret i midtpunktet mellom fingrene, coalesced per
+  // frame. Samme mekanikk som paper-utgaven.
+  const pekerNed = (e: React.PointerEvent) => {
+    if (e.pointerType !== "touch") return;
+    pekere.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pekere.current.size === 2) {
+      const [a, b] = [...pekere.current.values()];
+      pinch.current = { avstand: Math.hypot(a.x - b.x, a.y - b.y), zoom };
+    }
+  };
+  const pekerFlytt = (e: React.PointerEvent) => {
+    if (!pekere.current.has(e.pointerId)) return;
+    pekere.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pekere.current.size === 2 && pinch.current) {
+      const el = scrollRef.current;
+      if (!el) return;
+      e.preventDefault();
+      const [a, b] = [...pekere.current.values()];
+      const avstand = Math.hypot(a.x - b.x, a.y - b.y);
+      const rekt = el.getBoundingClientRect();
+      const midt = vannrett
+        ? (a.x + b.x) / 2 - rekt.left
+        : (a.y + b.y) / 2 - rekt.top;
+      planleggZoom(pinch.current.zoom * (avstand / pinch.current.avstand), midt);
+    }
+  };
+  const pekerOpp = (e: React.PointerEvent) => {
+    pekere.current.delete(e.pointerId);
+    if (pekere.current.size < 2) pinch.current = null;
+  };
+
+  // Trackpad-pinch / ctrl+wheel (desktop) — zoom ankret under peker.
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const påWheel = (e: WheelEvent) => {
+      if (!e.ctrlKey) return;
+      e.preventDefault();
+      const rekt = el.getBoundingClientRect();
+      const v = vannrett ? e.clientX - rekt.left : e.clientY - rekt.top;
+      venterZoom.current = {
+        z: (venterZoom.current?.z ?? zoom) * Math.exp(-e.deltaY / 220),
+        v,
+      };
+      planleggZoom(venterZoom.current.z, v);
+    };
+    el.addEventListener("wheel", påWheel, { passive: false });
+    return () => el.removeEventListener("wheel", påWheel);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vannrett, zoom, layout]);
 
   const lukk = () => {
     const forrige = valgt;
@@ -241,9 +362,21 @@ export default function Chronoscope({ verk, ankere, naa: naaBygg }: Props) {
           <span className="cs-under">Chronoscope · every work is a leap</span>
         </div>
         <nav className="cs-nav">
-          <button type="button" aria-label="Zoom out" onClick={() => setZoom((z) => Math.max(0.5, +(z / 1.4).toFixed(2)))}>−</button>
-          <button type="button" aria-label="Zoom in" onClick={() => setZoom((z) => Math.min(10, +(z * 1.4).toFixed(2)))}>+</button>
-          <a href="/">← Paper view</a>
+          <button
+            type="button"
+            aria-label="Zoom out"
+            onClick={() => zoomTil(zoom / 1.4, scrollRef.current ? synsLangs(scrollRef.current) / 2 : 0)}
+          >
+            −
+          </button>
+          <button
+            type="button"
+            aria-label="Zoom in"
+            onClick={() => zoomTil(zoom * 1.4, scrollRef.current ? synsLangs(scrollRef.current) / 2 : 0)}
+          >
+            +
+          </button>
+          <a href="/">{"←︎ Paper view"}</a>
         </nav>
       </header>
 
@@ -255,7 +388,19 @@ export default function Chronoscope({ verk, ankere, naa: naaBygg }: Props) {
         offers the same data as an accessible catalogue.`}
       </p>
 
-      <div className="cs-scroll" ref={scrollRef} tabIndex={0} role="region" aria-label="Chronoscope (scrollable)" onKeyDown={onKeyDown}>
+      <div
+        className="cs-scroll"
+        ref={scrollRef}
+        tabIndex={0}
+        role="region"
+        aria-label="Chronoscope (scrollable)"
+        onKeyDown={onKeyDown}
+        onScroll={påScroll}
+        onPointerDown={pekerNed}
+        onPointerMove={pekerFlytt}
+        onPointerUp={pekerOpp}
+        onPointerCancel={pekerOpp}
+      >
         {klar && (
           <svg width={svgW} height={svgH} viewBox={`0 0 ${svgW} ${svgH}`} role="group" aria-label="Works as light arcs sliced by the NOW line.">
             <defs>
@@ -488,6 +633,11 @@ export default function Chronoscope({ verk, ankere, naa: naaBygg }: Props) {
           </svg>
         )}
       </div>
+
+      {/* NÅ-FAB: veien hjem — pila peker mot NÅ relativt til der du står */}
+      <button type="button" className="cs-fab" onClick={hoppTilNaa} aria-label="Jump to NOW">
+        {`NOW ${naaRetning === 1 ? (vannrett ? "→︎" : "↓︎") : vannrett ? "←︎" : "↑︎"}`}
+      </button>
 
       <ChronoKort verk={valgt != null ? verk[valgt] : null} naa={naa} onLukk={lukk} />
     </div>
