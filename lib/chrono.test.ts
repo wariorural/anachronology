@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import seed from "../data/seed.json";
 import type { Datasett, Verk } from "./typer";
-import { temporalitet, sprang, bueHoyde, buePath, slicePunkt, tellere } from "./chrono";
+import { temporalitet, sprang, bueHoyde, gapRang, buePath, slicePunkt, tellere } from "./chrono";
 
 const v = (lagetAar: number | undefined, fra: number, til = fra): Verk => ({
   tittel: "t",
@@ -33,13 +33,20 @@ describe("sprang", () => {
   });
 });
 
-describe("bueHoyde", () => {
-  it("vokser med kvadratrot og klemmes mot maks", () => {
-    const lav = bueHoyde(99, 1000);
-    const hoy = bueHoyde(800675, 1000);
-    expect(lav).toBeGreaterThan(14);
-    expect(hoy).toBe(1000);
-    expect(bueHoyde(400, 1000)).toBeCloseTo(14 + 20 * 13, 5);
+describe("bueHoyde + gapRang", () => {
+  it("mapper andel til [12 %, 100 %] av maks", () => {
+    expect(bueHoyde(0, 1000)).toBeCloseTo(120, 5);
+    expect(bueHoyde(1, 1000)).toBeCloseTo(1000, 5);
+    expect(bueHoyde(0.5, 1000)).toBeCloseTo(560, 5);
+  });
+  it("gapRang er persentil: outliere knuser ikke resten", () => {
+    const r = gapRang([10, 30, 99, 500, 800675]);
+    expect(r[0]).toBe(0);
+    expect(r[4]).toBe(1);
+    expect(r[2]).toBeCloseTo(0.5, 5); // midterste gap = midt på — tross outlier
+    // like gap → samme rang; fortegn ignoreres
+    const r2 = gapRang([-50, 50, 100]);
+    expect(r2[0]).toBe(r2[1]);
   });
 });
 

@@ -24,11 +24,23 @@ export function sprang(v: Verk): number {
   return 0;
 }
 
-/** Buehøyde ∝ √gap — Metropolis (99 år) gjør et elegant hopp, Time Machine
- *  (800 000+) et monumentalt, uten at skalaen sprenges lineært. Klemmes mot
- *  maks tilgjengelig tverr-plass. */
-export function bueHoyde(gapAar: number, maks: number): number {
-  return Math.min(14 + Math.sqrt(Math.abs(gapAar)) * 13, maks);
+/** Buehøyde fra en NORMALISERT andel (0..1) av tilgjengelig tverr-plass,
+ *  med gulv på 12 % så småsprang fortsatt leses som buer. Andelen kommer
+ *  fra gapRang (persentil) — verken rå √gap (alt klumpet nær aksen) eller
+ *  log-mot-maks (én 800 000-års-outlier knuste resten) brukte høyden. */
+export function bueHoyde(andel: number, maks: number): number {
+  return maks * (0.12 + 0.88 * Math.max(0, Math.min(1, andel)));
+}
+
+/** Persentil-rang for hvert gap: minste gap → 0, største → 1, like gap får
+ *  samme rang. Fordelings-uavhengig — datasettet fyller ALLTID hele
+ *  tverr-plassen jevnt, uansett outliere. */
+export function gapRang(gaps: number[]): number[] {
+  const abs = gaps.map(Math.abs);
+  const sorterte = [...new Set(abs)].sort((a, b) => a - b);
+  if (sorterte.length <= 1) return gaps.map(() => 1);
+  const rang = new Map(sorterte.map((g, i) => [g, i / (sorterte.length - 1)]));
+  return abs.map((g) => rang.get(g)!);
 }
 
 /** Kvadratisk bue-path langs en horisontal akse (akse-y = 0 i lokal ramme).
