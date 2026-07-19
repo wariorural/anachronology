@@ -9,7 +9,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { Verk, Anker } from "@/lib/typer";
 import { lagSkala } from "@/lib/skala";
-import { temporalitet, sprang, bueHoyde, slicePunkt, tellere } from "@/lib/chrono";
+import { temporalitet, sprang, bueHoyde, gapRang, slicePunkt, tellere } from "@/lib/chrono";
 import { fmtAar, fmtGap } from "@/lib/format";
 import { tikk } from "@/lib/haptikk";
 import ChronoKort from "./ChronoKort";
@@ -43,7 +43,7 @@ export default function Chronoscope({ verk, ankere, naa: naaBygg }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [W, setW] = useState(0);
   const [H, setH] = useState(0);
-  const [zoom, setZoom] = useState(2.4);
+  const [zoom, setZoom] = useState(3.6);
   const [valgt, setValgt] = useState<number | null>(null);
   const [fokusIdx, setFokusIdx] = useState<number | null>(null);
   const [naaRetning, setNaaRetning] = useState<1 | -1>(1);
@@ -93,6 +93,10 @@ export default function Chronoscope({ verk, ankere, naa: naaBygg }: Props) {
       pad: 10,
     });
 
+    // Persentil-rang per gap: fordelings-uavhengig høyde-andel — datasettet
+    // fyller alltid hele tverr-plassen jevnt, uansett outliere.
+    const andeler = gapRang(verk.map((v) => sprang(v)));
+
     const OFFSET = vannrett ? 90 : 80;
     const SLUTT = vannrett ? 80 : 90;
     const L = (aar: number) => OFFSET + skala.yearToY(aar);
@@ -101,8 +105,9 @@ export default function Chronoscope({ verk, ankere, naa: naaBygg }: Props) {
 
     // Tverr-geometri: desktop har to halvdeler (profeti over / minne under);
     // mobil bøyer alt mot høyre fra en venstre-spine.
-    const akse = vannrett ? Math.round(H * 0.6) : 74;
-    const maksOver = vannrett ? akse - 92 : Math.max(120, W - akse - 46);
+    // 42 %: minnene (121 av 175 verk) buer UNDER aksen og trenger mest rom.
+    const akse = vannrett ? Math.round(H * 0.42) : 74;
+    const maksOver = vannrett ? akse - 92 : Math.max(120, W - akse - 24);
     const maksUnder = vannrett ? H - akse - 64 : maksOver;
 
     type Bue = {
@@ -131,12 +136,14 @@ export default function Chronoscope({ verk, ankere, naa: naaBygg }: Props) {
       let h = 0;
       if (t !== "samtid") {
         const maks = t === "profeti" || !vannrett ? maksOver : maksUnder;
-        // Egenhøyde: viftespredning for klyngene som ellers deler klemt maks.
-        h = bueHoyde(gap, maks * (0.55 + 0.45 * hash01(v.tittel)));
+        // Persentil-andel × vifte-faktor mot tvinning i tette klynger.
+        h = bueHoyde(andeler[idx], maks * (0.82 + 0.18 * hash01(v.tittel)));
         const over = t === "profeti";
+        // Kvadratisk Bézier når bare HALVE kontrollpunkt-offsetten — kontroll
+        // settes til 2h så kurvens faktiske topp er h (og etiketten treffer).
         d = vannrett
-          ? `M ${p0} ${akse} Q ${(p0 + p1) / 2} ${akse + (over ? -h : h)} ${p1} ${akse}`
-          : `M ${akse} ${p0} Q ${akse + h} ${(p0 + p1) / 2} ${akse} ${p1}`;
+          ? `M ${p0} ${akse} Q ${(p0 + p1) / 2} ${akse + (over ? -2 * h : 2 * h)} ${p1} ${akse}`
+          : `M ${akse} ${p0} Q ${akse + 2 * h} ${(p0 + p1) / 2} ${akse} ${p1}`;
       }
       const lo = Math.min(p0, s0);
       const hi = Math.max(p1, s1, p0);
