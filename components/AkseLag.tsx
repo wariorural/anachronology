@@ -478,13 +478,13 @@ function AkseLag({ skala, ankere, venstreX, W, H, naa, toppCross = 108, bunnCros
   // Orientering: fortid → framtid langs tidsaksen.
   const orientering = vannrett ? (
     <g fill="var(--ink-soft)" fontSize={10} fontWeight={600} letterSpacing=".14em">
-      <text x={2} y={H - 30}>← PAST</text>
-      <text x={langsEnd - 2} y={H - 30} textAnchor="end">FUTURE →</text>
+      <text x={2} y={H - 30}>{"\u2190\uFE0E PAST"}</text>
+      <text x={langsEnd - 2} y={H - 30} textAnchor="end">{"FUTURE \u2192\uFE0E"}</text>
     </g>
   ) : (
     <g fill="var(--ink-soft)" fontSize={10} fontWeight={600} letterSpacing=".14em">
-      <text x={venstreX - 8} y={-34}>↑ PAST</text>
-      <text x={venstreX - 8} y={skala.hoyde + 30}>FUTURE ↓</text>
+      <text x={venstreX - 8} y={-34}>{"\u2191\uFE0E PAST"}</text>
+      <text x={venstreX - 8} y={skala.hoyde + 30}>{"FUTURE \u2193\uFE0E"}</text>
     </g>
   );
 

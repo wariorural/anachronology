@@ -94,7 +94,7 @@ export default function AnkerKort({ anker, onLukk }: Props) {
 
           <footer className="tm-kort-foot">
             <a href={wikiUrl(a.tittel, a.wiki)} target="_blank" rel="noopener noreferrer">
-              Wikipedia ↗
+              Wikipedia {"\u2197\uFE0E"}
             </a>
           </footer>
         </article>

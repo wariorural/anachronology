@@ -402,7 +402,7 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
     // Vis bare den som får plass i sin bane — resten hentes via hover/kort.
     const sistVistLangs = new Map<number, number>();
     for (const s of [...spor].sort((a, b) => a.lng0 - b.lng0)) {
-      const len = Math.min(s.verk.tittel.length, 30) * 6 + 8; // px tittelen tar langs aksen
+      const len = Math.min(s.verk.tittel.length, 30) * 7 + 8; // px tittelen tar langs aksen
       const forrige = sistVistLangs.get(s.lane);
       if (forrige === undefined || s.lng0 - forrige >= len) {
         sistVistLangs.set(s.lane, s.lng0);
@@ -1225,9 +1225,14 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
             >
               Depth
             </button>
-            {/* Ekstra view: planetarium-instrumentet. Papirutgaven er standard. */}
+            {/* Ekstra view: planetarium-instrumentet. Papirutgaven er standard.
+                Pilen er SVG — «↗»-tegnet rendres som blå emoji på iOS. */}
             <a className="tm-chrono-lenke" href="/chronoscope">
-              Chronoscope ↗
+              <span className="tm-chrono-lang">Chronoscope</span>
+              <span className="tm-chrono-kort" aria-hidden="true">Scope</span>
+              <svg width="9" height="9" viewBox="0 0 9 9" aria-hidden="true">
+                <path d="M1.5 7.5 L7.5 1.5 M3 1.5 H7.5 V6" fill="none" stroke="currentColor" strokeWidth="1.4" />
+              </svg>
             </a>
             <button
               type="button"
@@ -1237,13 +1242,19 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
               aria-label="Legend & filters"
               onClick={() => setSkuffÅpen((o) => !o)}
             >
-              <svg width="17" height="15" aria-hidden="true">
-                <circle cx="3" cy="4" r="2" fill="currentColor" />
-                <line x1="7" y1="4" x2="15" y2="4" stroke="currentColor" strokeWidth="1.6" />
-                <rect x="1" y="9" width="4" height="4" fill="currentColor" />
-                <line x1="7" y1="11" x2="15" y2="11" stroke="currentColor" strokeWidth="1.6" />
+              {/* trakt = filter — entydig ikon (punktlista leste som meny) */}
+              <svg width="15" height="14" viewBox="0 0 15 14" aria-hidden="true">
+                <path d="M1 1 H14 L9.5 7 V12.5 L5.5 10.5 V7 Z" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
               </svg>
-              <span aria-hidden="true">{skuffÅpen ? "▴" : "▾"}</span>
+              <svg
+                width="9"
+                height="6"
+                viewBox="0 0 9 6"
+                aria-hidden="true"
+                style={{ transform: skuffÅpen ? "rotate(180deg)" : "none" }}
+              >
+                <path d="M1 1 L4.5 5 L8 1" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+              </svg>
             </button>
           </div>
         </div>
@@ -1259,7 +1270,10 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
               Depth
             </button>
             <a className="tm-chrono-lenke tm-skuff-chrono" href="/chronoscope">
-              Chronoscope ↗
+              Chronoscope
+              <svg width="9" height="9" viewBox="0 0 9 9" aria-hidden="true">
+                <path d="M1.5 7.5 L7.5 1.5 M3 1.5 H7.5 V6" fill="none" stroke="currentColor" strokeWidth="1.4" />
+              </svg>
             </a>
           </div>
         <ul className="tm-legend" aria-label="Legend">
@@ -1538,7 +1552,7 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
         onClick={hoppTilNaa}
         aria-label="Jump to NOW"
       >
-        NOW {naaRetning === 1 ? "↓" : "↑"}
+        NOW {naaRetning === 1 ? "\u2193\uFE0E" : "\u2191\uFE0E"}
       </button>
 
       <Kort

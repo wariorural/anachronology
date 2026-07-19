@@ -1393,6 +1393,30 @@ body {
     align-items: stretch;
     gap: 8px;
   }
+  /* Landskap: hjemmeindikator skal ikke ligge oppå årstallene */
+  .tm-app {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  /* Rail-knappene skal være KOMPAKTE kvadrater — Depth/Chronoscope arvet
+     fulle bredder og gjorde railen dominant (brukertest-funn). */
+  .tm-controls .tm-relieff-toggle,
+  .tm-controls .tm-chrono-lenke {
+    width: 100% !important;
+    min-height: 44px;
+    padding: 0 !important;
+    font-size: 8px !important;
+    letter-spacing: 0.04em;
+    justify-content: center;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+  }
+
+  .tm-chrono-lang {
+    display: none;
+  }
+
   /* Alle rail-knappene = identiske bokser: full bredde, 44px tap-target.
      Scopet under .tm-controls så de slår base-regelen .tm-controls button (30px). */
   .tm-controls .tm-naa,
@@ -1867,10 +1891,21 @@ body {
   color: var(--cs-ink-3);
 }
 
-/* lenke fra papirutgaven */
+/* lenke fra papirutgaven. Kort «Scope»-etikett kun i landskaps-railen. */
+.tm-chrono-kort {
+  display: none;
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .tm-chrono-kort {
+    display: inline;
+  }
+}
+
 .tm-chrono-lenke {
   display: inline-flex;
   align-items: center;
+  gap: 4px;
   height: var(--control-h);
   padding: 0 10px;
   font-size: 10px;
