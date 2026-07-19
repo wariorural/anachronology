@@ -422,9 +422,31 @@ function AkseLag({ skala, ankere, venstreX, W, H, naa, toppCross = 108, bunnCros
   // --- Hendelser: tverrlinje + etikett spredt inn i kroppen ---
   // Vekt 400 + papir-halo: grå+lett = bakgrunn, blekk+medium = figur — og der
   // strataene likevel krysser forblir begge lesbare i stedet for bokstavgrøt.
+  // Kontekst-etiketten skal kunne TRYKKES selv der den ligger oppå et
+  // epoke-/personbånd (båndenes trykkflater bor i lag over grunn-laget og
+  // stjal tapen — «Tomato → Europe» åpnet epoken). Treff-flate i treff-laget.
+  const ktxTreff = (a: Anker, key: string) => {
+    if (!onVelgAnker) return;
+    const pos = ktxPos(kontekstLane.get(a)!, L(a.fra));
+    const w = ktxTekst(a, a.type === "oppfinnelse").length * 5.8;
+    const rekt = vannrett
+      ? { x: pos.x - w / 2 - 4, y: pos.y - 12, width: w + 8, height: 17 }
+      : { x: pos.x - 4, y: pos.y - 12, width: w + 8, height: 17 };
+    etikettTreff.push(
+      <rect
+        key={key}
+        {...rekt}
+        fill="transparent"
+        className="tm-anker-knapp"
+        onClick={() => onVelgAnker(a)}
+      />,
+    );
+  };
+
   const hendelser = hendAnk.map((a, i) => {
     const p = L(a.fra);
     const pos = ktxPos(kontekstLane.get(a)!, p);
+    ktxTreff(a, `ktreff-h${i}`);
     return (
       <g key={`hendelse-${i}`} {...interaktiv(a)}>
         {/* usynlig fet treff-linje — 1px-linja er umulig å treffe på touch */}
@@ -441,6 +463,7 @@ function AkseLag({ skala, ankere, venstreX, W, H, naa, toppCross = 108, bunnCros
   const oppfinnelser = oppfAnk.map((a, i) => {
     const p = L(a.fra);
     const pos = ktxPos(kontekstLane.get(a)!, p);
+    ktxTreff(a, `ktreff-o${i}`);
     return (
       <g key={`oppf-${i}`} {...interaktiv(a)}>
         {tverrLinje(p, `oh-${i}`, "transparent", 16)}

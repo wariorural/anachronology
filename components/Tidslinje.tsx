@@ -1463,6 +1463,12 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
                   </radialGradient>
                 </defs>
                 <g transform={wrap}>
+              {/* Anker-ETIKETTENES treff-flater (epoker + hendelser/oppfinnelser)
+                  ligger FØR sporene: etiketter vinner over båndflatene i lagene
+                  under, men verkene — som rendres etter — vinner alltid over
+                  etikettene (Soria Moria-markøren skal åpne verket, ikke
+                  MONGOL EMPIRE-etiketten den overlapper). */}
+              <AkseLag {...akseProps} lag="treff" />
               {/* Valgt spor rendres SIST → ring + tittel havner øverst. */}
               {(valgt == null
                 ? layout.spor
@@ -1512,10 +1518,6 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
                     </text>
                   </g>
                 ))}
-              {/* Epoke-etikettenes treff-flater OVER verkene: i tette strøk dekker
-                  verkenes 44px-treffsirkler båndene — et tap på selve etiketten
-                  skal likevel alltid åpne epoken. */}
-              <AkseLag {...akseProps} lag="treff" />
                 </g>
               </svg>
             </div>
