@@ -144,8 +144,22 @@ export default function Spor({
       }}
     >
       <title>{label}</title>
-      {/* usynlig treffområde ≥44px (WCAG target size) — lett å treffe på touch */}
-      <circle cx={(x + x2) / 2} cy={(y + y2) / 2} r={Math.max(22, spennLen / 2 + 14)} fill="transparent" />
+      {/* usynlig treffområde ≥44px (WCAG target size): sirkel PÅ markøren +
+          smal kapsel LANGS spennet. Aldri en disk over hele spennet — den
+          blokkerte alle naboer innenfor radiusen (verst for valgt verk, som
+          rendres øverst: umulig å treffe nye verk i nærheten). */}
+      <circle cx={x} cy={y} r={22} fill="transparent" />
+      {spenn && (
+        <line
+          x1={x}
+          y1={y}
+          x2={x2}
+          y2={y2}
+          stroke="transparent"
+          strokeWidth={28}
+          strokeLinecap="round"
+        />
+      )}
       {spenn && (
         /* oransje strek med runde ender = tidsspennet (fiksjon = oransje).
            4px: spennene skal aldri rope høyere enn NÅ-linja. */
