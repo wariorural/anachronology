@@ -1242,18 +1242,11 @@ export default function Tidslinje({ verk, ankere, naa: naaBygg }: Props) {
               aria-label="Legend & filters"
               onClick={() => setSkuffÅpen((o) => !o)}
             >
-              {/* trakt = filter — entydig ikon (punktlista leste som meny) */}
-              <svg width="15" height="14" viewBox="0 0 15 14" aria-hidden="true">
-                <path d="M1 1 H14 L9.5 7 V12.5 L5.5 10.5 V7 Z" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
-              </svg>
-              <svg
-                width="9"
-                height="6"
-                viewBox="0 0 9 6"
-                aria-hidden="true"
-                style={{ transform: skuffÅpen ? "rotate(180deg)" : "none" }}
-              >
-                <path d="M1 1 L4.5 5 L8 1" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+              {/* ETT enkelt ikon med luft: forstørrelsesglass (utforsk/filtrer).
+                  Åpen-tilstand vises ved invertert knapp — ingen chevron. */}
+              <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+                <circle cx="6.5" cy="6.5" r="4.75" fill="none" stroke="currentColor" strokeWidth="1.6" />
+                <line x1="10.2" y1="10.2" x2="14.4" y2="14.4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
               </svg>
             </button>
           </div>

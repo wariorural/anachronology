@@ -329,22 +329,19 @@ body {
 
 .tm-skuff-knapp {
   display: none; /* kun mobil */
-  width: auto;
+  width: var(--control-h);
   height: var(--control-h);
-  padding: 0 10px;
+  padding: 0;
   align-items: center;
-  gap: 4px;
-  font-size: 10px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  justify-content: center;
 }
 
-/* Fast bredde på pil-glyfen så ▴/▾ ikke gir sideveis jitter (ulik tegnbredde) */
-.tm-skuff-knapp span {
-  display: inline-block;
-  width: 9px;
-  text-align: center;
+/* Åpen skuff = invertert knapp (erstatter chevron-tilstanden) */
+.tm-skuff-knapp[aria-expanded="true"] {
+  background: var(--ink);
+  color: var(--paper);
 }
+
 
 /* ---- Årstall-HUD (kun mobil): instrumentavlesning av året i sentrum ---- */
 .tm-hud {
