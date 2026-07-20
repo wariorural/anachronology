@@ -795,7 +795,9 @@ body {
 }
 
 /* dobbel fokusring som holder mot både lyse og mørke markører */
-.spor:focus-visible :is(circle, rect, polygon) {
+.spor:focus-visible circle,
+.spor:focus-visible rect,
+.spor:focus-visible polygon {
   stroke: var(--accent);
   stroke-width: 2.5;
 }
@@ -1034,7 +1036,8 @@ body {
 /* ---- Papirrelieffet: skygge-/høylys-noder + toggle ----
    Flat mode (data-relieff="false" eller reduced motion) = dagens utgave:
    alle relieff-noder skjules, ingen egen kodevei. */
-[data-relieff="false"] :is(.tm-skygge, .tm-hoylys) {
+[data-relieff="false"] .tm-skygge,
+[data-relieff="false"] .tm-hoylys {
   display: none;
 }
 
@@ -1052,7 +1055,9 @@ body {
   pointer-events: none;
 }
 
-.tm-lag :is(.spor, .tm-anker-knapp, .tm-plus) {
+.tm-lag .spor,
+.tm-lag .tm-anker-knapp,
+.tm-lag .tm-plus {
   pointer-events: auto;
 }
 
