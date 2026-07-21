@@ -181,7 +181,11 @@
     {"tittel":"The Brothers Karamazov","medium":"bok","skaper":"Fyodor Dostoevsky","lagetAar":1880,"foregaarFra":1866,"foregaarTil":1866,"usikker":true,"merknad":"The narrator places the patricide thirteen years back — 1866","wiki":"https://en.wikipedia.org/wiki/The_Brothers_Karamazov"},
     {"tittel":"Anna Karenina","medium":"bok","skaper":"Leo Tolstoy","lagetAar":1878,"foregaarFra":1872,"foregaarTil":1876,"merknad":"Contemporary Petersburg and Moscow — ends with volunteers leaving for the Serbian war of 1876","wiki":"https://en.wikipedia.org/wiki/Anna_Karenina"},
     {"tittel":"Heimskringla","medium":"bok","skaper":"Snorri Sturluson","lagetAar":1230,"foregaarFra":500,"foregaarTil":1177,"usikker":true,"merknad":"From the legendary Yngling kings to Magnus Erlingsson 1177 — written in Iceland fifty years later","wiki":"https://en.wikipedia.org/wiki/Heimskringla"},
-    {"tittel":"The Prose Edda","medium":"bok","skaper":"Snorri Sturluson","lagetAar":1220,"foregaarFra":-1200,"foregaarTil":-1200,"usikker":true,"merknad":"Snorri's own prologue traces the Aesir from Troy — myth-time pinned to the same legend Homer sang","wiki":"https://en.wikipedia.org/wiki/Prose_Edda"}
+    {"tittel":"The Prose Edda","medium":"bok","skaper":"Snorri Sturluson","lagetAar":1220,"foregaarFra":-1200,"foregaarTil":-1200,"usikker":true,"merknad":"Snorri's own prologue traces the Aesir from Troy — myth-time pinned to the same legend Homer sang","wiki":"https://en.wikipedia.org/wiki/Prose_Edda"},
+    {"tittel":"Mutiny on the Bounty","medium":"bok","skaper":"Charles Nordhoff & James Norman Hall","lagetAar":1932,"foregaarFra":1787,"foregaarTil":1790,"merknad":"The Bounty sails 1787, mutiny 28 April 1789, Pitcairn 1790 — written 143 years later","wiki":"https://en.wikipedia.org/wiki/Mutiny_on_the_Bounty_(novel)"},
+    {"tittel":"The Saga of Frithiof the Bold","medium":"bok","skaper":"Unknown Icelander","lagetAar":1300,"foregaarFra":800,"foregaarTil":800,"usikker":true,"merknad":"Legend-time in Sogn — Framnes and Baldr's grove by the fjord, before Harald Fairhair","wiki":"https://en.wikipedia.org/wiki/Fri%C3%B0%C3%BEj%C3%B3fs_saga_hins_fr%C5%93kna"},
+    {"tittel":"The Prince","medium":"bok","skaper":"Niccolò Machiavelli","lagetAar":1513,"foregaarFra":1494,"foregaarTil":1512,"merknad":"The Italian Wars just lived through — Cesare Borgia's campaigns as the book's living example","wiki":"https://en.wikipedia.org/wiki/The_Prince"},
+    {"tittel":"Amadeus","medium":"film","skaper":"Miloš Forman","lagetAar":1984,"foregaarFra":1781,"foregaarTil":1823,"merknad":"Mozart's Vienna years 1781–91, framed by old Salieri's confession in 1823","wiki":"https://en.wikipedia.org/wiki/Amadeus_(film)"}
   ],
   "ankere": [
     {"tittel":"Last Ice Age","type":"epoke","fra":-115000,"til":-11700,"vekt":2,"merknad":"The last glacial period — humanity's deep, frozen backdrop","wiki":"https://en.wikipedia.org/wiki/Last_Glacial_Period"},
@@ -260,6 +264,11 @@
     {"tittel":"Han Dynasty","type":"epoke","fra":-206,"til":220,"merknad":"China's classical empire — the Silk Road opens","wiki":"https://en.wikipedia.org/wiki/Han_dynasty"},
     {"tittel":"Islamic Golden Age","type":"epoke","fra":750,"til":1258,"vekt":2,"merknad":"Baghdad's House of Wisdom — algebra, astronomy, translation","wiki":"https://en.wikipedia.org/wiki/Islamic_Golden_Age"},
     {"tittel":"Ada Lovelace","type":"person","fra":1815,"til":1852,"merknad":"Wrote the first algorithm — for a computer that was never built"},
-    {"tittel":"Snorri Sturluson","type":"person","fra":1179,"til":1241,"merknad":"Chieftain and poet at Reykholt — wrote the kings' sagas, killed in his cellar 1241","wiki":"https://en.wikipedia.org/wiki/Snorri_Sturluson"}
+    {"tittel":"Snorri Sturluson","type":"person","fra":1179,"til":1241,"merknad":"Chieftain and poet at Reykholt — wrote the kings' sagas, killed in his cellar 1241","wiki":"https://en.wikipedia.org/wiki/Snorri_Sturluson"},
+    {"tittel":"Johann Sebastian Bach","type":"person","fra":1685,"til":1750,"merknad":"The Baroque's summit — died the year the era is said to end","wiki":"https://en.wikipedia.org/wiki/Johann_Sebastian_Bach"},
+    {"tittel":"Wolfgang Amadeus Mozart","type":"person","fra":1756,"til":1791,"merknad":"600+ works in 35 years — the Requiem left unfinished on his deathbed","wiki":"https://en.wikipedia.org/wiki/Wolfgang_Amadeus_Mozart"},
+    {"tittel":"Ludwig van Beethoven","type":"person","fra":1770,"til":1827,"merknad":"Fully deaf when the Ninth premiered in 1824 — he had to be turned to see the applause","wiki":"https://en.wikipedia.org/wiki/Ludwig_van_Beethoven"},
+    {"tittel":"Frédéric Chopin","type":"person","fra":1810,"til":1849,"merknad":"Poland's poet of the piano, exiled in Paris — his heart smuggled home to Warsaw","wiki":"https://en.wikipedia.org/wiki/Fr%C3%A9d%C3%A9ric_Chopin"},
+    {"tittel":"Pyotr Tchaikovsky","type":"person","fra":1840,"til":1893,"merknad":"Swan Lake, the Pathétique — died nine days after conducting its premiere","wiki":"https://en.wikipedia.org/wiki/Pyotr_Ilyich_Tchaikovsky"}
   ]
 }
